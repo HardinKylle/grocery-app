@@ -3,7 +3,10 @@ import type { User } from 'firebase/auth';
 import { AuthProvider, useAuth } from './auth/AuthProvider';
 import { SignInScreen } from './screens/SignInScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
-import { CatalogScreen, InventoryScreen, ShoppingListScreen } from './screens/placeholders';
+import { ShoppingListScreen } from './screens/placeholders';
+import { InventoryScreen } from './screens/InventoryScreen';
+import { CatalogScreen } from './screens/CatalogScreen';
+import { AccountProvider } from './data/AccountProvider';
 
 export function App() {
   return (
@@ -33,23 +36,25 @@ const tabs = [
 
 function Shell({ user }: { user: User }) {
   return (
-    <div className="shell">
-      <main className="content">
-        <Routes>
-          <Route path="/inventory" element={<InventoryScreen />} />
-          <Route path="/shopping-list" element={<ShoppingListScreen />} />
-          <Route path="/catalog" element={<CatalogScreen />} />
-          <Route path="/settings" element={<SettingsScreen user={user} />} />
-          <Route path="*" element={<Navigate to="/inventory" replace />} />
-        </Routes>
-      </main>
-      <nav className="tabs" aria-label="Main">
-        {tabs.map((tab) => (
-          <NavLink key={tab.to} to={tab.to} className="tab">
-            {tab.label}
-          </NavLink>
-        ))}
-      </nav>
-    </div>
+    <AccountProvider uid={user.uid}>
+      <div className="shell">
+        <main className="content">
+          <Routes>
+            <Route path="/inventory" element={<InventoryScreen />} />
+            <Route path="/shopping-list" element={<ShoppingListScreen />} />
+            <Route path="/catalog" element={<CatalogScreen />} />
+            <Route path="/settings" element={<SettingsScreen user={user} />} />
+            <Route path="*" element={<Navigate to="/inventory" replace />} />
+          </Routes>
+        </main>
+        <nav className="tabs" aria-label="Main">
+          {tabs.map((tab) => (
+            <NavLink key={tab.to} to={tab.to} className="tab">
+              {tab.label}
+            </NavLink>
+          ))}
+        </nav>
+      </div>
+    </AccountProvider>
   );
 }

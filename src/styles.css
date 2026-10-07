@@ -123,3 +123,144 @@ button {
   color: var(--accent);
   font-weight: 600;
 }
+
+/* Inputs: 16px stops iOS Safari zooming on focus. */
+input {
+  font: inherit;
+  font-size: 16px;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  min-width: 0;
+}
+
+.add-product {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.add-product input:first-child {
+  flex: 1;
+}
+
+.add-product button {
+  padding: 0.6rem 1rem;
+}
+
+.search {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.products {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.product {
+  border-bottom: 1px solid var(--line);
+}
+
+.product-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 3.25rem;
+}
+
+.product-name {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  background: none;
+  padding: 0.6rem 0;
+  text-align: left;
+  color: var(--fg);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.expiry {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.expiry.expired {
+  color: var(--error-fg);
+  font-weight: 600;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.step {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  font-size: 1.3rem;
+  line-height: 1;
+  background: var(--line);
+  color: var(--fg);
+}
+
+.step:disabled {
+  opacity: 0.4;
+}
+
+.count {
+  width: 3.5rem;
+  text-align: center;
+  padding: 0.5rem 0.25rem;
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.25rem 0 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.field label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.field-error {
+  margin: 0;
+  color: var(--error-fg);
+  font-size: 0.85rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.button-link {
+  background: none;
+  color: var(--accent);
+  padding: 0.5rem;
+}
+
+.button-danger {
+  align-self: flex-start;
+  background: var(--error-bg);
+  color: var(--error-fg);
+  padding: 0.6rem 1rem;
+}
