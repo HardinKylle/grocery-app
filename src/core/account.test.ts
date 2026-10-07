@@ -447,3 +447,173 @@ describe('Shopping List', () => {
     expect(account.shoppingList()).toEqual([]);
   });
 });
+
+describe('Low Stock', () => {
+  it('is off by default', () => {
+    const { account } = setup();
+    account.addProductByName('Eggs', 1);
+    expect(account.catalog()[0].lowStockThreshold).toBeNull();
+    expect(account.lowStock()).toEqual([]);
+  });
+
+  it('flags a count above 0 and at or below the threshold', () => {
+    const { account } = setup();
+    const eggs = account.addProductByName('Eggs', 4);
+    account.setLowStockThreshold(eggs, 3);
+    expect(account.lowStock()).toEqual([]);
+    account.decrement(eggs);
+    expect(names(account.lowStock())).toEqual(['Eggs']);
+    account.setCount(eggs, 1);
+    expect(names(account.lowStock())).toEqual(['Eggs']);
+    account.decrement(eggs);
+    expect(account.lowStock()).toEqual([]);
+  });
+
+  it('stops flagging when the threshold is turned off', () => {
+    const { account } = setup();
+    const eggs = account.addProductByName('Eggs', 2);
+    account.setLowStockThreshold(eggs, 2);
+    account.setLowStockThreshold(eggs, null);
+    expect(account.lowStock()).toEqual([]);
+    account.setLowStockThreshold(eggs, 2);
+    account.setLowStockThreshold(eggs, 0);
+    expect(account.catalog()[0].lowStockThreshold).toBeNull();
+  });
+
+  it('keeps the threshold a whole number', () => {
+    const { account } = setup();
+    const eggs = account.addProductByName('Eggs', 2);
+    account.setLowStockThreshold(eggs, 2.7);
+    expect(account.catalog()[0].lowStockThreshold).toBe(2);
+    account.setLowStockThreshold(eggs, Number.NaN);
+    expect(account.catalog()[0].lowStockThreshold).toBe(2);
+  });
+
+  it('is sorted by name', () => {
+    const { account } = setup();
+    for (const name of ['rice', 'Bear Brand Milk', 'Carrots']) {
+      account.setLowStockThreshold(account.addProductByName(name, 1), 1);
+    }
+    expect(names(account.lowStock())).toEqual(['Bear Brand Milk', 'Carrots', 'rice']);
+  });
+});
+
+describe('Out of Stock', () => {
+  it('flags a Product whose count drops from 1 or more to 0', () => {
+    const { account } = setup();
+    const eggs = account.addProductByName('Eggs', 2);
+    account.decrement(eggs);
+    expect(account.outOfStock()).toEqual([]);
+    account.decrement(eggs);
+    expect(names(account.outOfStock())).toEqual(['Eggs']);
+    expect(names(account.catalog())).toEqual(['Eggs']);
+  });
+
+  it('does not flag a Product that was never at home', () => {
+    const { account } = setup();
+    const rice = account.addProductByName('Rice', 0);
+    account.setCount(rice, 0);
+    account.decrement(rice);
+    account.addToShoppingListByName('Fish Sauce');
+    account.removeFromShoppingList(account.catalog()[0].id);
+    expect(account.outOfStock()).toEqual([]);
+  });
+
+  it('flags a count set straight to 0', () => {
+    const { account } = setup();
+    const rice = account.addProductByName('Rice', 5);
+    account.setCount(rice, 0);
+    expect(names(account.outOfStock())).toEqual(['Rice']);
+  });
+
+  it('is hidden while the Product is on the Shopping List', () => {
+    const { account } = setup();
+    const eggs = account.addProductByName('Eggs', 1);
+    account.decrement(eggs);
+    account.addToShoppingList(eggs);
+    expect(account.outOfStock()).toEqual([]);
+    account.removeFromShoppingList(eggs);
+    expect(names(account.outOfStock())).toEqual(['Eggs']);
+  });
+
+  it('clears when stock is added again', () => {
+    const { account } = setup();
+    const eggs = account.addProductByName('Eggs', 1);
+    account.decrement(eggs);
+    account.increment(eggs);
+    expect(account.outOfStock()).toEqual([]);
+    expect(account.catalog()[0].outOfStock).toBe(false);
+  });
+
+  it('clears when the Product is checked off the Shopping List', () => {
+    const { account } = setup();
+    const eggs = account.addProductByName('Eggs', 1);
+    account.decrement(eggs);
+    account.addToShoppingList(eggs);
+    account.checkOff(eggs);
+    account.doneShopping();
+    expect(account.outOfStock()).toEqual([]);
+    expect(account.catalog()[0].outOfStock).toBe(false);
+  });
+
+  it('comes back when a check-off is undone back to 0', () => {
+    const { account } = setup();
+    const eggs = account.addProductByName('Eggs', 1);
+    account.decrement(eggs);
+    account.addToShoppingList(eggs);
+    account.checkOff(eggs);
+    account.uncheck(eggs);
+    account.removeFromShoppingList(eggs);
+    expect(names(account.outOfStock())).toEqual(['Eggs']);
+  });
+
+  it('can be dismissed; the Product stays in the Catalog', () => {
+    const { account } = setup();
+    const eggs = account.addProductByName('Eggs', 1);
+    account.decrement(eggs);
+    account.dismissOutOfStock(eggs);
+    expect(account.outOfStock()).toEqual([]);
+    expect(names(account.catalog())).toEqual(['Eggs']);
+  });
+
+  it('forgets a dismiss once stock is added again', () => {
+    const { account } = setup();
+    const eggs = account.addProductByName('Eggs', 1);
+    account.decrement(eggs);
+    account.dismissOutOfStock(eggs);
+    account.increment(eggs);
+    expect(account.catalog()[0]).toMatchObject({ outOfStock: false, dismissed: false });
+    account.decrement(eggs);
+    expect(names(account.outOfStock())).toEqual(['Eggs']);
+  });
+
+  it('ignores a dismiss for a Product that is not Out of Stock', () => {
+    const { account } = setup();
+    const eggs = account.addProductByName('Eggs', 1);
+    account.dismissOutOfStock(eggs);
+    account.decrement(eggs);
+    expect(names(account.outOfStock())).toEqual(['Eggs']);
+  });
+});
+
+describe('stock flags', () => {
+  it('never add a Product to the Shopping List', () => {
+    const { account } = setup();
+    const eggs = account.addProductByName('Eggs', 3);
+    const milk = account.addProductByName('Milk', 1);
+    account.setLowStockThreshold(eggs, 2);
+    account.decrement(eggs);
+    account.decrement(milk);
+    account.dismissOutOfStock(milk);
+    expect(names(account.lowStock())).toEqual(['Eggs']);
+    expect(account.shoppingList()).toEqual([]);
+  });
+
+  it('let a flagged Product be added to the Shopping List', () => {
+    const { account } = setup();
+    const eggs = account.addProductByName('Eggs', 1);
+    account.setLowStockThreshold(eggs, 1);
+    account.addToShoppingList(eggs);
+    expect(names(account.shoppingList())).toEqual(['Eggs']);
+  });
+});
