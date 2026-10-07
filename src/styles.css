@@ -264,3 +264,44 @@ input {
   color: var(--error-fg);
   padding: 0.6rem 1rem;
 }
+
+.add-to-list {
+  align-self: flex-start;
+  padding: 0.6rem 1rem;
+}
+
+.check {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.check input[type='checkbox'] {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: none;
+  accent-color: var(--accent);
+}
+
+.checked .list-name {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.remove {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  font-size: 1.4rem;
+  line-height: 1;
+  background: none;
+  color: var(--muted);
+}
+
+.done-shopping {
+  width: 100%;
+  margin-top: 1rem;
+}

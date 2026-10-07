@@ -55,7 +55,7 @@ export function ExpiryLabel({ date }: { date: IsoDate }) {
   );
 }
 
-/** Rename, Expiry Date, and delete for one Product. */
+/** Rename, Expiry Date, add to Shopping List, and delete for one Product. */
 export function ProductEditor({ account, product }: { account: Account; product: Product }) {
   const [name, setName] = useState(product.name);
   const [error, setError] = useState<string>();
@@ -116,6 +116,18 @@ export function ProductEditor({ account, product }: { account: Account; product:
           <p className="muted small">Add stock to set an Expiry Date.</p>
         )}
       </div>
+
+      {product.shoppingList ? (
+        <p className="muted small">On the Shopping List.</p>
+      ) : (
+        <button
+          type="button"
+          className="button-secondary add-to-list"
+          onClick={() => account.addToShoppingList(product.id)}
+        >
+          Add to Shopping List
+        </button>
+      )}
 
       <button type="button" className="button-danger" onClick={remove}>
         Delete Product

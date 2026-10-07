@@ -3,7 +3,7 @@ import type { User } from 'firebase/auth';
 import { AuthProvider, useAuth } from './auth/AuthProvider';
 import { SignInScreen } from './screens/SignInScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
-import { ShoppingListScreen } from './screens/placeholders';
+import { ShoppingListScreen } from './screens/ShoppingListScreen';
 import { InventoryScreen } from './screens/InventoryScreen';
 import { CatalogScreen } from './screens/CatalogScreen';
 import { AccountProvider } from './data/AccountProvider';
