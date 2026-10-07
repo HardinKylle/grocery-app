@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { LookupUnavailable } from '../core/account';
 import { createOpenFoodFactsLookup } from './openFoodFacts';
 
 function jsonResponse(status: number, body: unknown) {
@@ -64,11 +65,17 @@ describe('Open Food Facts lookup', () => {
     await expect(lookup.lookup('4800361339421')).rejects.toThrow();
   });
 
-  it('rejects instead of going over the rate limit', async () => {
+  it('rejects as unavailable instead of going over the rate limit', async () => {
     const { lookup, calls } = lookupWith(async () => jsonResponse(404, { status: 0 }));
     for (let i = 0; i < 10; i++) await lookup.lookup('4800361339421');
 
-    await expect(lookup.lookup('4800361339421')).rejects.toThrow();
+    await expect(lookup.lookup('4800361339421')).rejects.toBeInstanceOf(LookupUnavailable);
     expect(calls).toHaveLength(10);
+  });
+
+  it('rejects as unavailable when Open Food Facts says too many requests', async () => {
+    const { lookup } = lookupWith(async () => jsonResponse(429, { status: 0 }));
+
+    await expect(lookup.lookup('4800361339421')).rejects.toBeInstanceOf(LookupUnavailable);
   });
 });

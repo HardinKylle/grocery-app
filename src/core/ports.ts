@@ -40,6 +40,15 @@ export type LookupHit = {
 export type BarcodeLookup = {
   /** False when there is clearly no signal, so the lookup is skipped. */
   isOnline(): boolean;
-  /** Resolves null when not found. Rejects when the lookup could not be made. */
+  /**
+   * Resolves null when not found. Rejects when the lookup could not be made:
+   * with LookupUnavailable when the service is busy (rate limit), otherwise
+   * (timeout, no signal) with any error.
+   */
   lookup(barcode: string): Promise<LookupHit | null>;
 };
+
+/** The lookup service is up but will not answer now (rate limit). */
+export class LookupUnavailable extends Error {
+  override name = 'LookupUnavailable';
+}

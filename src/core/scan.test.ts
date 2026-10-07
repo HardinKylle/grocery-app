@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createAccount, type BarcodeLookup, type LookupHit } from './account';
+import { createAccount, LookupUnavailable, type BarcodeLookup, type LookupHit } from './account';
 import { createMemoryStorage } from './memoryStorage';
 import type { Clock } from './ports';
 
@@ -199,6 +199,22 @@ describe('scan, unknown Barcode', () => {
     const result = await account.scan(NUTELLA, 'inventory');
 
     expect(result).toMatchObject({ kind: 'unknown', lookup: 'offline', suggestion: null });
+  });
+
+  it('reports the lookup as unavailable, not offline, when the service is busy', async () => {
+    const storage = createMemoryStorage();
+    const account = createAccount({
+      storage,
+      clock: fixedClock,
+      barcodeLookup: {
+        isOnline: () => true,
+        lookup: () => Promise.reject(new LookupUnavailable('rate limit')),
+      },
+    });
+
+    const result = await account.scan(NUTELLA, 'inventory');
+
+    expect(result).toMatchObject({ kind: 'unknown', lookup: 'unavailable', suggestion: null });
   });
 
   it('never looks up a known Barcode, so known Barcodes work offline', async () => {

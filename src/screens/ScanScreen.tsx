@@ -221,6 +221,7 @@ function UnknownBarcode({
     found: 'Found on Open Food Facts. Check the name.',
     notFound: 'Not on Open Food Facts. Type a name.',
     offline: 'No signal, so no lookup. Type a name.',
+    unavailable: 'Open Food Facts is busy right now. Type a name.',
   }[pending.lookup];
 
   return (

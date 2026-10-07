@@ -15,6 +15,7 @@ export { normalizeBarcode } from './scanning';
 
 export type { IsoDate, Product, ShoppingListEntry } from './product';
 export type { AccountStorage, BarcodeLookup, Change, Clock, LookupHit } from './ports';
+export { LookupUnavailable } from './ports';
 export type {
   ScanApplied,
   ScanChoice,

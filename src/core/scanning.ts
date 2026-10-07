@@ -1,7 +1,13 @@
 // Barcode and Scan Mode rules. Part of the Account core; createAccount
 // mixes these commands in.
 
-import type { AccountStorage, BarcodeLookup, Change, LookupHit } from './ports';
+import {
+  LookupUnavailable,
+  type AccountStorage,
+  type BarcodeLookup,
+  type Change,
+  type LookupHit,
+} from './ports';
 import { newEntry, type Product } from './product';
 
 /** Where scans go. */
@@ -28,8 +34,11 @@ export type ScanApplied = {
 export type ScanUnknown = {
   kind: 'unknown';
   barcode: string;
-  /** 'offline' also covers a lookup that failed (timeout, no signal). */
-  lookup: 'found' | 'notFound' | 'offline';
+  /**
+   * 'offline' also covers a lookup that failed (timeout, no signal).
+   * 'unavailable': online, but the lookup service is busy (rate limit).
+   */
+  lookup: 'found' | 'notFound' | 'offline' | 'unavailable';
   suggestion: LookupHit | null;
 };
 
@@ -154,8 +163,8 @@ export function createScanCommands({
     try {
       const hit = await barcodeLookup.lookup(barcode);
       return hit ? unknown('found', hit) : unknown('notFound');
-    } catch {
-      return unknown('offline');
+    } catch (error) {
+      return unknown(error instanceof LookupUnavailable ? 'unavailable' : 'offline');
     }
   }
 

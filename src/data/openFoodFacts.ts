@@ -1,4 +1,4 @@
-import type { BarcodeLookup, LookupHit } from '../core/account';
+import { LookupUnavailable, type BarcodeLookup, type LookupHit } from '../core/account';
 
 const API = 'https://world.openfoodfacts.org/api/v2/product/';
 const FIELDS = 'product_name,product_name_en,image_front_small_url';
@@ -11,7 +11,7 @@ const MAX_PER_MINUTE = 10;
 /**
  * Barcode lookup on Open Food Facts. Only Barcodes the Account does not know
  * reach here. Never retries: a failure rejects, and the core then asks the
- * owner to type a name.
+ * owner to type a name. Rate limits reject with LookupUnavailable.
  */
 export function createOpenFoodFactsLookup({
   fetch: doFetch = (input, init) => fetch(input, init),
@@ -27,7 +27,7 @@ export function createOpenFoodFactsLookup({
     async lookup(barcode) {
       const now = Date.now();
       while (recent.length && now - recent[0] > 60_000) recent.shift();
-      if (recent.length >= MAX_PER_MINUTE) throw new Error('Open Food Facts rate limit');
+      if (recent.length >= MAX_PER_MINUTE) throw new LookupUnavailable('Open Food Facts rate limit');
       recent.push(now);
 
       // One controller + setTimeout, not AbortSignal.timeout, for older iOS.
@@ -39,6 +39,7 @@ export function createOpenFoodFactsLookup({
           `${API}${encodeURIComponent(barcode)}?fields=${FIELDS}`,
           { signal: controller.signal, headers: { 'X-User-Agent': USER_AGENT } },
         );
+        if (response.status === 429) throw new LookupUnavailable('Open Food Facts rate limit');
         // Not found is a 404 with a JSON body, so read the body either way.
         const body: unknown = await response.json().catch(() => null);
         return toHit(body);
