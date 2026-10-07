@@ -59,6 +59,20 @@ describe('scan in Inventory mode, known Barcode', () => {
     expect(productOf(account, milk)?.count).toBe(0);
     expect(account.inventory()).toEqual([]);
   });
+
+  it('brings an Out of Stock Product back, and undo puts it back in Out of Stock', async () => {
+    const { account } = setup();
+    const milk = account.addProductByName('Bear Brand Milk', 1);
+    account.linkBarcode(milk, BEAR_BRAND);
+    account.decrement(milk);
+
+    const result = await account.scan(BEAR_BRAND, 'inventory');
+    expect(account.outOfStock()).toEqual([]);
+
+    if (result.kind !== 'applied') throw new Error('expected applied');
+    result.undo();
+    expect(account.outOfStock()).toMatchObject([{ id: milk, count: 0 }]);
+  });
 });
 
 describe('scan in Shopping List mode, known Barcode', () => {
