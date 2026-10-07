@@ -164,19 +164,8 @@ export function createScanCommands({
   function applyWithBarcode(product: Product, barcode: string, mode: ScanMode): ScanApplied {
     const before = withBarcode(product, barcode);
     const { product: after, effect } = applyMode(before, mode);
-    storage.commit([
-      ...releaseChanges(barcode, product.id),
-      { kind: 'putProduct', product: after },
-    ]);
+    storage.commit(linkChanges(storage.products(), after, barcode));
     return { kind: 'applied', product: after, effect, undo: undoFor(before, after, effect) };
-  }
-
-  // Changes that take the Barcode off every Product except `keepId`.
-  function releaseChanges(barcode: string, keepId: string): Change[] {
-    return storage
-      .products()
-      .filter((p) => p.id !== keepId && p.barcodes.includes(barcode))
-      .map((p) => ({ kind: 'putProduct', product: withoutBarcode(p, barcode) }));
   }
 
   return {
@@ -209,10 +198,7 @@ export function createScanCommands({
       const barcode = normalizeBarcode(raw);
       const product = find(productId);
       if (!product) return;
-      storage.commit([
-        ...releaseChanges(barcode, productId),
-        { kind: 'putProduct', product: withBarcode(product, barcode) },
-      ]);
+      storage.commit(linkChanges(storage.products(), product, barcode));
     },
 
     unlinkBarcode(productId, raw) {
@@ -233,6 +219,23 @@ export function normalizeBarcode(raw: string): string {
   const code = raw.trim();
   if (!/^\d{6,14}$/.test(code)) throw new Error(`Not a Barcode: ${raw}`);
   return code.length === 12 ? `0${code}` : code;
+}
+
+/**
+ * One batch that saves `product` with the Barcode and takes the Barcode off
+ * every other Product (a Barcode belongs to at most one Product).
+ */
+export function linkChanges(
+  products: readonly Product[],
+  product: Product,
+  barcode: string,
+): Change[] {
+  return [
+    ...products
+      .filter((p) => p.id !== product.id && p.barcodes.includes(barcode))
+      .map((p): Change => ({ kind: 'putProduct', product: withoutBarcode(p, barcode) })),
+    { kind: 'putProduct', product: withBarcode(product, barcode) },
+  ];
 }
 
 function withBarcode(product: Product, barcode: string): Product {

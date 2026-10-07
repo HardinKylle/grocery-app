@@ -50,6 +50,91 @@ describe('addProductByName', () => {
   });
 });
 
+describe('addProduct', () => {
+  it('creates a Catalog Product at count 0: not in the Inventory, not Out of Stock', () => {
+    const { account } = setup();
+    const rice = account.addProduct({ name: 'Rice' });
+    expect(account.catalog()).toMatchObject([
+      { id: rice, name: 'Rice', count: 0, price: null, barcodes: [] },
+    ]);
+    expect(account.inventory()).toEqual([]);
+    expect(account.outOfStock()).toEqual([]);
+    expect(account.shoppingList()).toEqual([]);
+  });
+
+  it('takes an optional Price and Barcode', () => {
+    const { account } = setup();
+    account.addProduct({ name: 'Bear Brand Milk', price: 42.5, barcode: '4800361339421' });
+    expect(account.catalog()).toMatchObject([
+      { name: 'Bear Brand Milk', price: 42.5, barcodes: ['4800361339421'] },
+    ]);
+  });
+
+  it('moves the Barcode off any Product that had it', async () => {
+    const { account } = setup();
+    const old = account.addProduct({ name: 'Milk', barcode: '4800361339421' });
+    const fresh = account.addProduct({ name: 'Bear Brand Milk', barcode: '4800361339421' });
+    expect(account.catalog().find((p) => p.id === old)?.barcodes).toEqual([]);
+    const result = await account.scan('4800361339421', 'inventory');
+    expect(result).toMatchObject({ kind: 'applied', product: { id: fresh } });
+  });
+
+  it('rejects a blank name, a bad Price, or a bad Barcode, and saves nothing', () => {
+    const { account } = setup();
+    expect(() => account.addProduct({ name: ' ' })).toThrow();
+    expect(() => account.addProduct({ name: 'Rice', price: -5 })).toThrow();
+    expect(() => account.addProduct({ name: 'Rice', barcode: 'abc' })).toThrow();
+    expect(account.catalog()).toEqual([]);
+  });
+});
+
+describe('addToInventory', () => {
+  it('puts a Catalog Product at home with the count and Expiry Date', () => {
+    const { account } = setup();
+    const rice = account.addProduct({ name: 'Rice' });
+    account.addToInventory(rice, 2, '2026-12-01');
+    expect(account.inventory()).toMatchObject([
+      { id: rice, count: 2, expiryDate: '2026-12-01' },
+    ]);
+  });
+
+  it('works without an Expiry Date', () => {
+    const { account } = setup();
+    const rice = account.addProduct({ name: 'Rice' });
+    account.addToInventory(rice, 1, null);
+    expect(account.inventory()).toMatchObject([{ id: rice, count: 1, expiryDate: null }]);
+  });
+
+  it('raises the count of an existing entry and sets the edited Expiry Date', () => {
+    const { account } = setup();
+    const milk = account.addProductByName('Milk', 2);
+    account.setExpiryDate(milk, '2026-10-20');
+    account.addToInventory(milk, 3, '2026-10-15');
+    expect(account.inventory()).toMatchObject([{ id: milk, count: 5, expiryDate: '2026-10-15' }]);
+  });
+
+  it('restocks an Out of Stock Product', () => {
+    const { account } = setup();
+    const eggs = account.addProductByName('Eggs', 1);
+    account.decrement(eggs);
+    account.addToInventory(eggs, 6, null);
+    expect(account.outOfStock()).toEqual([]);
+    expect(countOf(account, eggs)).toBe(6);
+  });
+
+  it('adds whole units of at least 1 and rejects a bad Expiry Date', () => {
+    const { account } = setup();
+    const rice = account.addProduct({ name: 'Rice' });
+    account.addToInventory(rice, 0, null);
+    account.addToInventory(rice, Number.NaN, null);
+    expect(countOf(account, rice)).toBe(0);
+    account.addToInventory(rice, 2.7, null);
+    expect(countOf(account, rice)).toBe(2);
+    expect(() => account.addToInventory(rice, 1, '2026-02-30')).toThrow();
+    expect(countOf(account, rice)).toBe(2);
+  });
+});
+
 describe('Product names', () => {
   it('are trimmed', () => {
     const { account } = setup();
@@ -260,13 +345,39 @@ describe('Shopping List', () => {
     expect(entry(account, rice)).toEqual({ buyQuantity: 1, checkedOff: false });
   });
 
-  it('keeps the entry as it is when the Product is added again', () => {
+  it('takes a chosen buy quantity', () => {
+    const { account } = setup();
+    const rice = account.addProduct({ name: 'Rice' });
+    account.addToShoppingList(rice, 3);
+    expect(entry(account, rice)).toEqual({ buyQuantity: 3, checkedOff: false });
+  });
+
+  it('adds to the buy quantity when the Product is already on the list', () => {
+    const { account } = setup();
+    const rice = account.addProduct({ name: 'Rice' });
+    account.addToShoppingList(rice, 2);
+    account.addToShoppingList(rice, 3);
+    account.addToShoppingList(rice);
+    expect(entry(account, rice)).toEqual({ buyQuantity: 6, checkedOff: false });
+  });
+
+  it('adds whole units of at least 1', () => {
+    const { account } = setup();
+    const rice = account.addProduct({ name: 'Rice' });
+    account.addToShoppingList(rice, 0);
+    account.addToShoppingList(rice, Number.NaN);
+    expect(account.shoppingList()).toEqual([]);
+    account.addToShoppingList(rice, 2.9);
+    expect(entry(account, rice)).toEqual({ buyQuantity: 2, checkedOff: false });
+  });
+
+  it('keeps a checked-off entry as it is when the Product is added again', () => {
     const { account } = setup();
     const rice = account.addProductByName('Rice', 0);
     account.addToShoppingList(rice);
     account.setBuyQuantity(rice, 3);
     account.checkOff(rice);
-    account.addToShoppingList(rice);
+    account.addToShoppingList(rice, 2);
     expect(entry(account, rice)).toEqual({ buyQuantity: 3, checkedOff: true });
     expect(countOf(account, rice)).toBe(3);
   });

@@ -3,7 +3,12 @@
 
 import type { AccountStorage, BarcodeLookup, Clock } from './ports';
 import type { IsoDate, Product, ShoppingListEntry } from './product';
-import { createScanCommands, type ScanCommands } from './scanning';
+import {
+  createScanCommands,
+  linkChanges,
+  normalizeBarcode,
+  type ScanCommands,
+} from './scanning';
 
 export { normalizeBarcode } from './scanning';
 
@@ -36,6 +41,18 @@ export type Account = ScanCommands & {
   catalog(search?: string): Product[];
   /** Adds a Product to the Catalog and returns its id. */
   addProductByName(name: string, count: number): string;
+  /**
+   * The Catalog's add-a-Product form: creates a Product at count 0 (not in
+   * the Inventory, not Out of Stock), with an optional Price and Barcode, and
+   * returns its id. Throws on a blank name, a bad Price, or a bad Barcode.
+   */
+  addProduct(input: { name: string; price?: number | null; barcode?: string | null }): string;
+  /**
+   * The Catalog's "Add to Inventory": adds `count` whole units (at least 1)
+   * to the Product's Inventory count, creating the entry if needed, and sets
+   * the Expiry Date to `expiryDate` (null = none). Throws on a bad date.
+   */
+  addToInventory(productId: string, count: number, expiryDate: IsoDate | null): void;
   increment(productId: string): void;
   decrement(productId: string): void;
   setCount(productId: string, count: number): void;
@@ -63,8 +80,12 @@ export type Account = ScanCommands & {
    * the Catalog. Ignored if the Product is not Out of Stock.
    */
   dismissOutOfStock(productId: string): void;
-  /** Puts a Catalog Product on the Shopping List with a buy quantity of 1. */
-  addToShoppingList(productId: string): void;
+  /**
+   * Puts a Catalog Product on the Shopping List with `quantity` (default 1,
+   * whole, at least 1). If it is already on the list, adds to its buy
+   * quantity, unless checked off (that buy quantity is locked).
+   */
+  addToShoppingList(productId: string, quantity?: number): void;
   /**
    * Adds the Catalog Product with this name (ignoring case), or creates one
    * at count 0, and puts it on the Shopping List. Returns its id. Throws if
@@ -166,6 +187,26 @@ export function createAccount({
       return product.id;
     },
 
+    addProduct({ name, price = null, barcode = null }) {
+      const product = { ...newProduct(name, 0), price: price === null ? null : validPrice(price) };
+      storage.commit(
+        barcode === null
+          ? [{ kind: 'putProduct', product }]
+          : linkChanges(storage.products(), product, normalizeBarcode(barcode)),
+      );
+      return product.id;
+    },
+
+    addToInventory(productId, count, expiryDate) {
+      if (expiryDate !== null && !isIsoDate(expiryDate)) {
+        throw new Error(`Not a YYYY-MM-DD date: ${expiryDate}`);
+      }
+      const added = wholeCount(count);
+      const product = find(productId);
+      if (!product || !added) return;
+      put({ ...withCount(product, product.count + added), expiryDate });
+    },
+
     addToShoppingListByName(name) {
       const wanted = productName(name).toLowerCase();
       const existing = storage.products().find((p) => p.name.toLowerCase() === wanted);
@@ -223,10 +264,15 @@ export function createAccount({
       put({ ...product, dismissed: true });
     },
 
-    addToShoppingList(productId) {
+    addToShoppingList(productId, quantity = 1) {
+      const added = wholeCount(quantity);
       const product = find(productId);
-      if (!product || product.shoppingList) return;
-      put({ ...product, shoppingList: { buyQuantity: 1, checkedOff: false } });
+      if (!product || !added) return;
+      const entry = product.shoppingList;
+      // Locked while checked off: un-check must subtract what was added.
+      if (entry?.checkedOff) return;
+      const buyQuantity = (entry?.buyQuantity ?? 0) + added;
+      put({ ...product, shoppingList: { buyQuantity, checkedOff: false } });
     },
 
     setBuyQuantity(productId, quantity) {
