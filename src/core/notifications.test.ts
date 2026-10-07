@@ -136,14 +136,20 @@ describe('dueNotifications: Shopping Day message', () => {
         }),
         product('Soap', { count: 0, outOfStock: true }),
         product('Salt', { count: 0, outOfStock: true, dismissed: true }),
+        product('Sugar', {
+          count: 0,
+          outOfStock: true,
+          shoppingList: { buyQuantity: 1, checkedOff: false },
+        }),
         product('Milk', { expiryDate: '2026-10-08' }),
       ],
       { shoppingDay: wednesday },
     );
     const message = result.find((n) => n.kind === 'shoppingDay');
-    // Bread is checked off; Oil is Low Stock but already on the list; Salt is dismissed.
+    // Bread is checked off; Oil (Low Stock) and Sugar (Out of Stock) are
+    // already on the list; Salt is dismissed.
     expect(message?.body).toBe(
-      '3 Products on your Shopping List.\nLow Stock: Rice.\nOut of Stock: Soap.\nExpiring: Milk.',
+      '4 Products on your Shopping List.\nLow Stock: Rice.\nOut of Stock: Soap.\nExpiring: Milk.',
     );
   });
 

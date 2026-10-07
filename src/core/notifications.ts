@@ -116,9 +116,9 @@ function shoppingDayBody(products: readonly Product[], expiring: Product[]): str
     clock: { now: () => new Date(0) },
   });
   const toBuy = account.shoppingList().filter((p) => !p.shoppingList?.checkedOff).length;
-  // Low Stock Products already on the list need no reminder.
+  // Low Stock and Out of Stock Products already on the list need no reminder.
   const lowStock = account.lowStock().filter((p) => !p.shoppingList);
-  const outOfStock = account.outOfStock();
+  const outOfStock = account.outOfStock().filter((p) => !p.shoppingList);
 
   const lines = [toBuy === 1 ? '1 Product on your Shopping List.' : `${toBuy} Products on your Shopping List.`];
   if (lowStock.length) lines.push(`Low Stock: ${names(lowStock)}.`);

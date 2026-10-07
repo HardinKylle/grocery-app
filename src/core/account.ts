@@ -30,11 +30,16 @@ export type Account = ScanCommands & {
   inventory(): Product[];
   /** Products on the Shopping List, checked off or not, sorted by name. */
   shoppingList(): Product[];
+  /**
+   * Estimated cost of the Shopping List: Price × buy quantity summed over
+   * entries with a Price (checked off or not), and how many have no Price.
+   */
+  shoppingListEstimate(): { total: number; unpriced: number };
   /** Low Stock Products: count above 0 and at or below their threshold. Sorted by name. */
   lowStock(): Product[];
   /**
-   * Out of Stock Products to show: not dismissed and not on the Shopping
-   * List. Sorted by name.
+   * Out of Stock Products to show: not dismissed. Products on the Shopping
+   * List are included (shown marked "On list"). Sorted by name.
    */
   outOfStock(): Product[];
   /** Every Product, sorted by name. `search` matches part of the name. */
@@ -162,6 +167,17 @@ export function createAccount({
     subscribe: (listener) => storage.subscribe(listener),
     inventory: () => byName(storage.products().filter((p) => p.count >= 1)),
     shoppingList: () => byName(storage.products().filter((p) => p.shoppingList !== null)),
+    shoppingListEstimate() {
+      let centavos = 0;
+      let unpriced = 0;
+      for (const p of storage.products()) {
+        if (!p.shoppingList) continue;
+        if (p.price === null) unpriced++;
+        // Whole centavos, so the sum has no floating-point drift.
+        else centavos += Math.round(p.price * 100) * p.shoppingList.buyQuantity;
+      }
+      return { total: centavos / 100, unpriced };
+    },
     lowStock: () =>
       byName(
         storage
@@ -174,7 +190,7 @@ export function createAccount({
       byName(
         storage
           .products()
-          .filter((p) => p.outOfStock && !p.dismissed && p.shoppingList === null),
+          .filter((p) => p.outOfStock && !p.dismissed),
       ),
     catalog(search = '') {
       const needle = search.trim().toLowerCase();

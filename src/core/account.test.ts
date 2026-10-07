@@ -638,14 +638,25 @@ describe('Out of Stock', () => {
     expect(names(account.outOfStock())).toEqual(['Rice']);
   });
 
-  it('is hidden while the Product is on the Shopping List', () => {
+  it('still shows a Product that is on the Shopping List, with its entry', () => {
     const { account } = setup();
     const eggs = account.addProductByName('Eggs', 1);
     account.decrement(eggs);
     account.addToShoppingList(eggs);
-    expect(account.outOfStock()).toEqual([]);
+    expect(account.outOfStock()).toMatchObject([
+      { name: 'Eggs', shoppingList: { buyQuantity: 1, checkedOff: false } },
+    ]);
     account.removeFromShoppingList(eggs);
-    expect(names(account.outOfStock())).toEqual(['Eggs']);
+    expect(account.outOfStock()).toMatchObject([{ name: 'Eggs', shoppingList: null }]);
+  });
+
+  it('stays hidden when dismissed, even on the Shopping List', () => {
+    const { account } = setup();
+    const eggs = account.addProductByName('Eggs', 1);
+    account.decrement(eggs);
+    account.dismissOutOfStock(eggs);
+    account.addToShoppingList(eggs);
+    expect(account.outOfStock()).toEqual([]);
   });
 
   it('clears when stock is added again', () => {
@@ -756,6 +767,35 @@ describe('Price', () => {
       expect(() => account.setPrice(eggs, bad)).toThrow();
     }
     expect(account.catalog()[0].price).toBe(85);
+  });
+
+  it('gives the Shopping List an estimated total of Price × buy quantity', () => {
+    const { account } = setup();
+    const eggs = account.addProduct({ name: 'Eggs', price: 8.5 });
+    const milk = account.addProduct({ name: 'Milk', price: 42 });
+    const salt = account.addProduct({ name: 'Salt' });
+    // Rice has a Price but is not on the list.
+    account.addProduct({ name: 'Rice', price: 50 });
+    account.addToShoppingList(eggs, 12);
+    account.addToShoppingList(milk, 2);
+    account.addToShoppingList(salt);
+    // Checked-off entries still count until Done Shopping.
+    account.checkOff(milk);
+    expect(account.shoppingListEstimate()).toEqual({ total: 186, unpriced: 1 });
+  });
+
+  it('gives an empty Shopping List a total of 0', () => {
+    const { account } = setup();
+    expect(account.shoppingListEstimate()).toEqual({ total: 0, unpriced: 0 });
+  });
+
+  it('keeps the estimated total exact to the centavo', () => {
+    const { account } = setup();
+    const a = account.addProduct({ name: 'A', price: 0.1 });
+    const b = account.addProduct({ name: 'B', price: 0.2 });
+    account.addToShoppingList(a);
+    account.addToShoppingList(b);
+    expect(account.shoppingListEstimate().total).toBe(0.3);
   });
 
   it('is read as off from older Products saved without one', () => {
