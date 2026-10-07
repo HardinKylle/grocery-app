@@ -1,0 +1,517 @@
+:root {
+  --bg: #ffffff;
+  --fg: #1c1c1e;
+  --muted: #6b6b70;
+  --line: #e5e5ea;
+  --accent: #2f7d32;
+  --error-bg: #fdecea;
+  --error-fg: #a1261b;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+h1 {
+  font-size: 1.6rem;
+  margin: 0 0 0.75rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 0.85rem;
+}
+
+.loading,
+.sign-in {
+  min-height: 100dvh;
+  padding: calc(env(safe-area-inset-top) + 2rem) 1.25rem 2rem;
+}
+
+.sign-in {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 28rem;
+  margin: 0 auto;
+}
+
+.notice {
+  padding: 0.75rem 1rem;
+  border-radius: 0.6rem;
+  margin: 0;
+}
+
+.notice-error {
+  background: var(--error-bg);
+  color: var(--error-fg);
+}
+
+button {
+  font: inherit;
+  border: 0;
+  border-radius: 0.7rem;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+}
+
+.button-primary {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.button-primary:disabled {
+  opacity: 0.6;
+}
+
+.button-secondary {
+  background: var(--line);
+  color: var(--fg);
+}
+
+.shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.content {
+  flex: 1;
+  padding: calc(env(safe-area-inset-top) + 1rem) 1.25rem 6rem;
+}
+
+.empty {
+  color: var(--muted);
+  text-align: center;
+  margin-top: 3rem;
+}
+
+.tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tab {
+  padding: 0.85rem 0.25rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.tab.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Inputs: 16px stops iOS Safari zooming on focus. */
+input,
+select {
+  font: inherit;
+  font-size: 16px;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  min-width: 0;
+}
+
+.add-product {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.add-product input:first-child {
+  flex: 1;
+}
+
+.add-product button {
+  padding: 0.6rem 1rem;
+}
+
+.search {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.products {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.product {
+  border-bottom: 1px solid var(--line);
+}
+
+.product-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 3.25rem;
+}
+
+.product-name {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  background: none;
+  padding: 0.6rem 0;
+  text-align: left;
+  color: var(--fg);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.expiry {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.expiry.expired {
+  color: var(--error-fg);
+  font-weight: 600;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.step {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  font-size: 1.3rem;
+  line-height: 1;
+  background: var(--line);
+  color: var(--fg);
+}
+
+.step:disabled {
+  opacity: 0.4;
+}
+
+.count {
+  width: 3.5rem;
+  text-align: center;
+  padding: 0.5rem 0.25rem;
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.25rem 0 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.field label,
+.field .label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.field-error {
+  margin: 0;
+  color: var(--error-fg);
+  font-size: 0.85rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.button-link {
+  background: none;
+  color: var(--accent);
+  padding: 0.5rem;
+}
+
+.button-danger {
+  align-self: flex-start;
+  background: var(--error-bg);
+  color: var(--error-fg);
+  padding: 0.6rem 1rem;
+}
+
+.add-to-list {
+  align-self: flex-start;
+  padding: 0.6rem 1rem;
+}
+
+.check {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.check input[type='checkbox'] {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: none;
+  accent-color: var(--accent);
+}
+
+.checked .list-name {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.remove {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  font-size: 1.4rem;
+  line-height: 1;
+  background: none;
+  color: var(--muted);
+}
+
+.done-shopping {
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.estimate {
+  margin: 0.75rem 0 0;
+}
+
+.add-product-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.add-product-form .row input {
+  min-width: 0;
+}
+
+.add-product-form button {
+  padding: 0.6rem 1rem;
+}
+
+.thumb {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  border-radius: 0.4rem;
+  background: var(--line);
+  object-fit: contain;
+}
+
+.thumb-letter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.price-input {
+  width: 8rem;
+}
+
+.stock-section {
+  margin-top: 1.5rem;
+}
+
+.stock-section h2 {
+  font-size: 1.1rem;
+  margin: 0 0 0.25rem;
+}
+
+.stock-add {
+  padding: 0.5rem 0.75rem;
+  white-space: nowrap;
+}
+
+.threshold {
+  width: 6rem;
+}
+
+.field .muted.small {
+  margin: 0;
+}
+
+.settings-heading {
+  font-size: 1.1rem;
+  margin: 1.5rem 0 0.5rem;
+}
+
+.photo {
+  width: 4rem;
+  height: 4rem;
+  object-fit: contain;
+  border-radius: 0.5rem;
+  background: var(--line);
+  flex: none;
+}
+
+.barcodes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.barcode {
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.grow {
+  flex: 1;
+}
+
+/* Scan screen */
+.mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: var(--line);
+  border-radius: 0.8rem;
+  margin-bottom: 0.75rem;
+}
+
+.mode {
+  background: none;
+  color: var(--fg);
+  padding: 0.6rem 0.5rem;
+  font-size: 0.9rem;
+}
+
+.mode.selected {
+  background: var(--bg);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.viewfinder {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: #000;
+  border-radius: 0.8rem;
+  overflow: hidden;
+}
+
+.viewfinder video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.viewfinder-cover {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  color: #fff;
+  text-align: center;
+}
+
+.stop-camera {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.manual-entry {
+  margin-top: 0.75rem;
+}
+
+.manual-entry input {
+  flex: 1;
+}
+
+.toast {
+  position: fixed;
+  left: 1rem;
+  right: 1rem;
+  bottom: calc(env(safe-area-inset-bottom) + 4.5rem);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+  border-radius: 0.8rem;
+  background: var(--fg);
+  color: var(--bg);
+  z-index: 10;
+}
+
+.toast .button-link {
+  color: #8fd694;
+  font-weight: 600;
+}
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-end;
+  z-index: 20;
+}
+
+.sheet {
+  width: 100%;
+  max-height: 85dvh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: var(--bg);
+  border-radius: 1rem 1rem 0 0;
+  padding: 1.25rem 1.25rem calc(env(safe-area-inset-bottom) + 1rem);
+}
+
+.sheet h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.link-list {
+  max-height: 40dvh;
+  overflow-y: auto;
+}

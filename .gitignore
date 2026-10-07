@@ -5,3 +5,12 @@ dist/
 *.log
 .firebase/
 coverage/
+
+# Firebase emulator logs
+firestore-debug.log
+firebase-debug.log
+ui-debug.log
+database-debug.log
+pubsub-debug.log
+auth-debug.log
+hosting-debug.log

@@ -9,7 +9,7 @@ One person's own copy of the app, holding exactly one Inventory and one Shopping
 _Avoid_: Household, user profile
 
 **Product**:
-A grocery item an Account keeps track of. It has an Inventory count in whole units and may also be on the Shopping List.
+A grocery item defined in the Catalog: its name, Barcodes, photo, Price, and Low Stock Threshold. It may have one Inventory entry and one Shopping List entry.
 _Avoid_: Item, entry
 
 **Barcode**:
@@ -17,11 +17,11 @@ A code printed on packaging that identifies a Product. A Product can have zero, 
 _Avoid_: UPC, EAN, SKU
 
 **Catalog**:
-Every Product an Account has ever scanned or added, whatever its count. A Product leaves the Catalog only when deleted.
+Every Product an Account has ever scanned or added. New Products are created here; counts are not managed here. A Product leaves the Catalog only when deleted.
 _Avoid_: Products page, product list, history
 
 **Inventory**:
-The Products an Account has at home, meaning a count of 1 or more.
+The Products an Account has at home. Each has one Inventory entry holding a count of 1 or more in whole units and an optional Expiry Date; adding more of a Product raises that count.
 _Avoid_: Stock, pantry list
 
 **Shopping List**:
@@ -43,8 +43,12 @@ A Product whose count is above 0 but at or below its Low Stock Threshold. It is 
 _Avoid_: Running low, almost out
 
 **Out of Stock**:
-A Product whose count has dropped from 1 or more to 0. A Product that has never been at home is not Out of Stock. It is shown as Out of Stock until it is added to the Shopping List or dismissed, and it stays in the Catalog either way. It is never added to the Shopping List automatically.
+A Product whose count has dropped from 1 or more to 0. A Product that has never been at home is not Out of Stock. It is shown as Out of Stock, marked if already on the Shopping List, until it is restocked or dismissed, and it stays in the Catalog either way. It is never added to the Shopping List automatically.
 _Avoid_: Empty, deleted
+
+**Price**:
+An optional, hand-entered amount in pesos per Product, used to show an estimated total for the Shopping List.
+_Avoid_: Cost, SRP
 
 **Expiry Date**:
 An optional, hand-entered date per Product, set to the soonest-expiring unit at home. It clears when the count drops to 0.
