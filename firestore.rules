@@ -18,12 +18,46 @@ service cloud.firestore {
         && isAllowListed();
     }
 
+    function isWhole(v, min, max) {
+      return v is int && v >= min && v <= max;
+    }
+
+    // Notification settings, read by the hourly Cloud Function.
+    function isValidSettings(data) {
+      return data.keys().hasOnly(['shoppingDay', 'notifyHour', 'expiryLeadDays'])
+        && (!('shoppingDay' in data) || data.shoppingDay == null
+            || isWhole(data.shoppingDay, 0, 6))
+        && (!('notifyHour' in data) || isWhole(data.notifyHour, 0, 23))
+        && (!('expiryLeadDays' in data) || isWhole(data.expiryLeadDays, 0, 30));
+    }
+
     // All of an Account's data lives under its own path.
     match /accounts/{uid} {
       allow read, write: if isOwner(uid);
 
-      match /{document=**} {
-        allow read, write: if isOwner(uid);
+      // Everything else under the Account. Collections with their own
+      // rules below are left out here, since matching rules are OR'ed.
+      match /{collection}/{document=**} {
+        allow read: if isOwner(uid);
+        allow write: if isOwner(uid)
+          && !(collection in ['settings', 'devices', 'server']);
+      }
+
+      match /settings/notifications {
+        allow read: if isOwner(uid);
+        allow write: if isOwner(uid) && isValidSettings(request.resource.data);
+      }
+
+      // FCM device tokens, one doc per token, keyed by the token.
+      match /devices/{token} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && request.resource.data.token == token;
+      }
+
+      // Server-only state, e.g. last-sent dates. Written by Cloud Functions
+      // (Admin SDK, which skips rules); clients may only read it.
+      match /server/{document=**} {
+        allow read: if isOwner(uid);
       }
     }
   }
