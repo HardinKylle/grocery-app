@@ -29,3 +29,18 @@ export type AccountStorage = {
 export type Clock = {
   now(): Date;
 };
+
+/** What Open Food Facts (or a fake) knows about a Barcode. */
+export type LookupHit = {
+  /** May be blank when the database has no usable name. */
+  name: string;
+  photoUrl: string | null;
+};
+
+/** Looks up Barcodes the Account does not know yet. */
+export type BarcodeLookup = {
+  /** False when there is clearly no signal, so the lookup is skipped. */
+  isOnline(): boolean;
+  /** Resolves null when not found. Rejects when the lookup could not be made. */
+  lookup(barcode: string): Promise<LookupHit | null>;
+};
