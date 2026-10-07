@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useAccount } from '../data/AccountProvider';
 import type { Account, Product } from '../core/account';
-import { formatPeso } from './productParts';
+import { formatPeso } from '../core/price';
 
 export function ShoppingListScreen() {
   const { account, loaded } = useAccount();

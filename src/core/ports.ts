@@ -1,8 +1,7 @@
 import type { Product } from './product';
 
 // A change the core asks storage to make. Storage applies a whole list of
-// changes together (one Firestore batch). Later tickets add kinds here,
-// e.g. Barcode index docs or Account settings.
+// changes together (one Firestore batch).
 export type Change =
   | { kind: 'putProduct'; product: Product }
   | { kind: 'deleteProduct'; productId: string };

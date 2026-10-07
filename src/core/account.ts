@@ -2,6 +2,7 @@
 // No UI or Firebase code belongs in src/core.
 
 import type { AccountStorage, BarcodeLookup, Clock } from './ports';
+import { toCentavos, toPesos, validPrice } from './price';
 import type { IsoDate, Product, ShoppingListEntry } from './product';
 import {
   createScanCommands,
@@ -44,8 +45,6 @@ export type Account = ScanCommands & {
   outOfStock(): Product[];
   /** Every Product, sorted by name. `search` matches part of the name. */
   catalog(search?: string): Product[];
-  /** Adds a Product to the Catalog and returns its id. */
-  addProductByName(name: string, count: number): string;
   /**
    * The Catalog's add-a-Product form: creates a Product at count 0 (not in
    * the Inventory, not Out of Stock), with an optional Price and Barcode, and
@@ -173,10 +172,9 @@ export function createAccount({
       for (const p of storage.products()) {
         if (!p.shoppingList) continue;
         if (p.price === null) unpriced++;
-        // Whole centavos, so the sum has no floating-point drift.
-        else centavos += Math.round(p.price * 100) * p.shoppingList.buyQuantity;
+        else centavos += toCentavos(p.price) * p.shoppingList.buyQuantity;
       }
-      return { total: centavos / 100, unpriced };
+      return { total: toPesos(centavos), unpriced };
     },
     lowStock: () =>
       byName(
@@ -197,12 +195,6 @@ export function createAccount({
       return byName(storage.products().filter((p) => p.name.toLowerCase().includes(needle)));
     },
 
-    addProductByName(name, count) {
-      const product = newProduct(name, wholeCount(count) ?? 0);
-      put(product);
-      return product.id;
-    },
-
     addProduct({ name, price = null, barcode = null }) {
       const product = { ...newProduct(name, 0), price: price === null ? null : validPrice(price) };
       storage.commit(
@@ -214,9 +206,7 @@ export function createAccount({
     },
 
     addToInventory(productId, count, expiryDate) {
-      if (expiryDate !== null && !isIsoDate(expiryDate)) {
-        throw new Error(`Not a YYYY-MM-DD date: ${expiryDate}`);
-      }
+      checkExpiryDate(expiryDate);
       const added = wholeCount(count);
       const product = find(productId);
       if (!product || !added) return;
@@ -248,7 +238,7 @@ export function createAccount({
     },
 
     setExpiryDate(productId, date) {
-      if (date !== null && !isIsoDate(date)) throw new Error(`Not a YYYY-MM-DD date: ${date}`);
+      checkExpiryDate(date);
       const product = find(productId);
       if (!product || product.count === 0) return;
       put({ ...product, expiryDate: date });
@@ -362,6 +352,11 @@ function withCount(product: Product, count: number): Product {
   };
 }
 
+/** Throws unless `date` is null or a 'YYYY-MM-DD' calendar day. */
+function checkExpiryDate(date: IsoDate | null) {
+  if (date !== null && !isIsoDate(date)) throw new Error(`Not a YYYY-MM-DD date: ${date}`);
+}
+
 function isIsoDate(value: string): value is IsoDate {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00Z`);
@@ -373,15 +368,6 @@ function productName(name: string): string {
   const trimmed = name.trim();
   if (!trimmed) throw new Error('A Product needs a name.');
   return trimmed;
-}
-
-/** A Price of 0 or more pesos, in whole centavos. Throws otherwise. */
-function validPrice(price: number): number {
-  const centavos = Math.round(price * 100);
-  if (!Number.isFinite(price) || price < 0 || Math.abs(price * 100 - centavos) > 1e-6) {
-    throw new Error(`Not a Price in pesos: ${price}`);
-  }
-  return centavos / 100;
 }
 
 /** A whole number, at least 0. Undefined when `n` is not a number. */

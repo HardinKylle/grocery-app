@@ -8,12 +8,13 @@ import {
   manilaTime,
   parseSettings,
   type LastSent,
+  type NotificationKind,
 } from '../../src/core/notifications';
 import { productFromData } from '../../src/core/product';
 
 export type PushMessage = {
-  /** 'expiry', 'shoppingDay', or 'test'. Also the notification tag. */
-  kind: string;
+  /** Also the notification tag. */
+  kind: NotificationKind | 'test';
   title: string;
   body: string;
   /** App screen to open when the notification is tapped. */

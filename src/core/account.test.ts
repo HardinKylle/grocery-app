@@ -12,6 +12,17 @@ function setup() {
   return { account, storage };
 }
 
+/** A Catalog Product with `count` at home, added the way the app does it. */
+function addStocked(
+  account: ReturnType<typeof setup>['account'],
+  name: string,
+  count: number,
+) {
+  const id = account.addProduct({ name });
+  if (count > 0) account.addToInventory(id, count, null);
+  return id;
+}
+
 function countOf(account: ReturnType<typeof setup>['account'], id: string) {
   return account.catalog().find((p) => p.id === id)?.count;
 }
@@ -34,19 +45,11 @@ describe('subscribe', () => {
     const { account } = setup();
     let calls = 0;
     const unsubscribe = account.subscribe(() => calls++);
-    const eggs = account.addProductByName('Eggs', 1);
+    const eggs = account.addProduct({ name: 'Eggs' });
     account.increment(eggs);
     unsubscribe();
     account.increment(eggs);
     expect(calls).toBe(2);
-  });
-});
-
-describe('addProductByName', () => {
-  it('adds the Product to the Catalog with the chosen count', () => {
-    const { account } = setup();
-    account.addProductByName('Bear Brand Milk', 3);
-    expect(account.catalog()).toMatchObject([{ name: 'Bear Brand Milk', count: 3 }]);
   });
 });
 
@@ -107,7 +110,7 @@ describe('addToInventory', () => {
 
   it('raises the count of an existing entry and sets the edited Expiry Date', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Milk', 2);
+    const milk = addStocked(account, 'Milk', 2);
     account.setExpiryDate(milk, '2026-10-20');
     account.addToInventory(milk, 3, '2026-10-15');
     expect(account.inventory()).toMatchObject([{ id: milk, count: 5, expiryDate: '2026-10-15' }]);
@@ -115,7 +118,7 @@ describe('addToInventory', () => {
 
   it('restocks an Out of Stock Product', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 1);
+    const eggs = addStocked(account, 'Eggs', 1);
     account.decrement(eggs);
     account.addToInventory(eggs, 6, null);
     expect(account.outOfStock()).toEqual([]);
@@ -138,26 +141,26 @@ describe('addToInventory', () => {
 describe('Product names', () => {
   it('are trimmed', () => {
     const { account } = setup();
-    account.addProductByName('  Eggs  ', 1);
+    addStocked(account, '  Eggs  ', 1);
     expect(names(account.catalog())).toEqual(['Eggs']);
   });
 
   it('cannot be blank', () => {
     const { account } = setup();
-    expect(() => account.addProductByName('   ', 1)).toThrow();
+    expect(() => addStocked(account, '   ', 1)).toThrow();
     expect(account.catalog()).toEqual([]);
   });
 
   it('can be changed with renameProduct', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Bear Brnad Milk', 1);
+    const milk = addStocked(account, 'Bear Brnad Milk', 1);
     account.renameProduct(milk, ' Bear Brand Milk ');
     expect(account.catalog()).toMatchObject([{ id: milk, name: 'Bear Brand Milk', count: 1 }]);
   });
 
   it('keep the old name when renamed to blank', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Milk', 1);
+    const milk = addStocked(account, 'Milk', 1);
     expect(() => account.renameProduct(milk, '')).toThrow();
     expect(names(account.catalog())).toEqual(['Milk']);
   });
@@ -166,8 +169,8 @@ describe('Product names', () => {
 describe('deleteProduct', () => {
   it('removes the Product from the Catalog and the Inventory', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 6);
-    account.addProductByName('Rice', 1);
+    const eggs = addStocked(account, 'Eggs', 6);
+    addStocked(account, 'Rice', 1);
     account.deleteProduct(eggs);
     expect(names(account.catalog())).toEqual(['Rice']);
     expect(names(account.inventory())).toEqual(['Rice']);
@@ -177,17 +180,17 @@ describe('deleteProduct', () => {
 describe('inventory', () => {
   it('shows only Products with a count of 1 or more', () => {
     const { account } = setup();
-    account.addProductByName('Rice', 0);
-    account.addProductByName('Eggs', 12);
+    addStocked(account, 'Rice', 0);
+    addStocked(account, 'Eggs', 12);
     expect(names(account.inventory())).toEqual(['Eggs']);
     expect(names(account.catalog())).toContain('Rice');
   });
 
   it('is sorted by name', () => {
     const { account } = setup();
-    account.addProductByName('eggs', 6);
-    account.addProductByName('Bear Brand Milk', 1);
-    account.addProductByName('Carrots', 2);
+    addStocked(account, 'eggs', 6);
+    addStocked(account, 'Bear Brand Milk', 1);
+    addStocked(account, 'Carrots', 2);
     expect(names(account.inventory())).toEqual(['Bear Brand Milk', 'Carrots', 'eggs']);
   });
 });
@@ -195,7 +198,7 @@ describe('inventory', () => {
 describe('counting', () => {
   it('increment adds one and decrement takes one away', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 2);
+    const eggs = addStocked(account, 'Eggs', 2);
     account.increment(eggs);
     account.increment(eggs);
     account.decrement(eggs);
@@ -204,7 +207,7 @@ describe('counting', () => {
 
   it('never goes below 0', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 1);
+    const eggs = addStocked(account, 'Eggs', 1);
     account.decrement(eggs);
     account.decrement(eggs);
     expect(countOf(account, eggs)).toBe(0);
@@ -212,14 +215,14 @@ describe('counting', () => {
 
   it('setCount sets the count directly', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 1);
+    const eggs = addStocked(account, 'Eggs', 1);
     account.setCount(eggs, 30);
     expect(countOf(account, eggs)).toBe(30);
   });
 
   it('keeps counts whole and at least 0', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 2.7);
+    const eggs = addStocked(account, 'Eggs', 2.7);
     expect(countOf(account, eggs)).toBe(2);
     account.setCount(eggs, -4);
     expect(countOf(account, eggs)).toBe(0);
@@ -231,7 +234,7 @@ describe('counting', () => {
 
   it('moves a Product into and out of the Inventory as its count crosses 1', () => {
     const { account } = setup();
-    const rice = account.addProductByName('Rice', 0);
+    const rice = addStocked(account, 'Rice', 0);
     account.increment(rice);
     expect(names(account.inventory())).toEqual(['Rice']);
     account.decrement(rice);
@@ -246,13 +249,13 @@ describe('Expiry Date', () => {
 
   it('is off by default', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Milk', 1);
+    const milk = addStocked(account, 'Milk', 1);
     expect(expiryOf(account, milk)).toBeNull();
   });
 
   it('can be set, changed, and cleared, and shows in the Inventory', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Milk', 2);
+    const milk = addStocked(account, 'Milk', 2);
     account.setExpiryDate(milk, '2026-10-12');
     expect(account.inventory()).toMatchObject([{ name: 'Milk', expiryDate: '2026-10-12' }]);
     account.setExpiryDate(milk, '2026-10-09');
@@ -263,7 +266,7 @@ describe('Expiry Date', () => {
 
   it('rejects dates that are not YYYY-MM-DD calendar days', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Milk', 1);
+    const milk = addStocked(account, 'Milk', 1);
     expect(() => account.setExpiryDate(milk, '12/10/2026')).toThrow();
     expect(() => account.setExpiryDate(milk, '2026-02-30')).toThrow();
     expect(expiryOf(account, milk)).toBeNull();
@@ -271,7 +274,7 @@ describe('Expiry Date', () => {
 
   it('clears when the count drops to 0', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Milk', 1);
+    const milk = addStocked(account, 'Milk', 1);
     account.setExpiryDate(milk, '2026-10-12');
     account.decrement(milk);
     account.increment(milk);
@@ -280,7 +283,7 @@ describe('Expiry Date', () => {
 
   it('clears when the count is set to 0', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Milk', 4);
+    const milk = addStocked(account, 'Milk', 4);
     account.setExpiryDate(milk, '2026-10-12');
     account.setCount(milk, 0);
     expect(expiryOf(account, milk)).toBeNull();
@@ -288,7 +291,7 @@ describe('Expiry Date', () => {
 
   it('stays while the count is above 0', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Milk', 2);
+    const milk = addStocked(account, 'Milk', 2);
     account.setExpiryDate(milk, '2026-10-12');
     account.decrement(milk);
     account.setCount(milk, 5);
@@ -297,7 +300,7 @@ describe('Expiry Date', () => {
 
   it('cannot be set on a Product that is not at home', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Milk', 0);
+    const milk = addStocked(account, 'Milk', 0);
     account.setExpiryDate(milk, '2026-10-12');
     expect(expiryOf(account, milk)).toBeNull();
   });
@@ -306,14 +309,14 @@ describe('Expiry Date', () => {
 describe('catalog', () => {
   it('records when each Product was added, from the clock', () => {
     const { account } = setup();
-    account.addProductByName('Eggs', 1);
+    addStocked(account, 'Eggs', 1);
     expect(account.catalog()[0].addedAt).toBe('2026-10-07T00:00:00.000Z');
   });
 
   it('shows every Product with its count, sorted by name', () => {
     const { account } = setup();
-    account.addProductByName('Rice', 0);
-    account.addProductByName('Eggs', 12);
+    addStocked(account, 'Rice', 0);
+    addStocked(account, 'Eggs', 12);
     expect(account.catalog()).toMatchObject([
       { name: 'Eggs', count: 12 },
       { name: 'Rice', count: 0 },
@@ -322,9 +325,9 @@ describe('catalog', () => {
 
   it('searches by name, ignoring case and position', () => {
     const { account } = setup();
-    account.addProductByName('Bear Brand Milk', 1);
-    account.addProductByName('Oat Milk', 0);
-    account.addProductByName('Eggs', 12);
+    addStocked(account, 'Bear Brand Milk', 1);
+    addStocked(account, 'Oat Milk', 0);
+    addStocked(account, 'Eggs', 12);
     expect(names(account.catalog('milk'))).toEqual(['Bear Brand Milk', 'Oat Milk']);
     expect(names(account.catalog('  EGG '))).toEqual(['Eggs']);
     expect(names(account.catalog(''))).toHaveLength(3);
@@ -338,8 +341,8 @@ describe('Shopping List', () => {
 
   it('takes any Catalog Product, with a buy quantity of 1, not checked off', () => {
     const { account } = setup();
-    const rice = account.addProductByName('Rice', 0);
-    account.addProductByName('Eggs', 6);
+    const rice = addStocked(account, 'Rice', 0);
+    addStocked(account, 'Eggs', 6);
     account.addToShoppingList(rice);
     expect(names(account.shoppingList())).toEqual(['Rice']);
     expect(entry(account, rice)).toEqual({ buyQuantity: 1, checkedOff: false });
@@ -373,7 +376,7 @@ describe('Shopping List', () => {
 
   it('keeps a checked-off entry as it is when the Product is added again', () => {
     const { account } = setup();
-    const rice = account.addProductByName('Rice', 0);
+    const rice = addStocked(account, 'Rice', 0);
     account.addToShoppingList(rice);
     account.setBuyQuantity(rice, 3);
     account.checkOff(rice);
@@ -384,7 +387,7 @@ describe('Shopping List', () => {
 
   it('lets the buy quantity change, as a whole number of at least 1', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 0);
+    const eggs = addStocked(account, 'Eggs', 0);
     account.addToShoppingList(eggs);
     account.setBuyQuantity(eggs, 12);
     expect(entry(account, eggs)?.buyQuantity).toBe(12);
@@ -398,7 +401,7 @@ describe('Shopping List', () => {
 
   it('keeps the buy quantity fixed while checked off, so un-checking undoes exactly', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 0);
+    const eggs = addStocked(account, 'Eggs', 0);
     account.addToShoppingList(eggs);
     account.setBuyQuantity(eggs, 2);
     account.checkOff(eggs);
@@ -409,7 +412,7 @@ describe('Shopping List', () => {
 
   it('checking off adds the buy quantity to the count at once and keeps the entry crossed out', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Milk', 1);
+    const milk = addStocked(account, 'Milk', 1);
     account.addToShoppingList(milk);
     account.setBuyQuantity(milk, 3);
     account.checkOff(milk);
@@ -421,7 +424,7 @@ describe('Shopping List', () => {
 
   it('checking off twice adds only once', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Milk', 0);
+    const milk = addStocked(account, 'Milk', 0);
     account.addToShoppingList(milk);
     account.checkOff(milk);
     account.checkOff(milk);
@@ -430,7 +433,7 @@ describe('Shopping List', () => {
 
   it('a checked-off Product shows in the Inventory', () => {
     const { account } = setup();
-    const rice = account.addProductByName('Rice', 0);
+    const rice = addStocked(account, 'Rice', 0);
     account.addToShoppingList(rice);
     account.checkOff(rice);
     expect(names(account.inventory())).toEqual(['Rice']);
@@ -438,7 +441,7 @@ describe('Shopping List', () => {
 
   it('un-checking subtracts the buy quantity again', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Milk', 1);
+    const milk = addStocked(account, 'Milk', 1);
     account.addToShoppingList(milk);
     account.setBuyQuantity(milk, 3);
     account.checkOff(milk);
@@ -451,7 +454,7 @@ describe('Shopping List', () => {
 
   it('un-checking never takes the count below 0', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Milk', 0);
+    const milk = addStocked(account, 'Milk', 0);
     account.addToShoppingList(milk);
     account.setBuyQuantity(milk, 3);
     account.checkOff(milk);
@@ -463,7 +466,7 @@ describe('Shopping List', () => {
 
   it('un-checking down to 0 clears the Expiry Date', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Milk', 0);
+    const milk = addStocked(account, 'Milk', 0);
     account.addToShoppingList(milk);
     account.checkOff(milk);
     account.setExpiryDate(milk, '2026-10-12');
@@ -473,7 +476,7 @@ describe('Shopping List', () => {
 
   it('can remove a Product without buying it; it stays in the Catalog', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Milk', 2);
+    const milk = addStocked(account, 'Milk', 2);
     account.addToShoppingList(milk);
     account.removeFromShoppingList(milk);
     expect(account.shoppingList()).toEqual([]);
@@ -482,9 +485,9 @@ describe('Shopping List', () => {
 
   it('Done Shopping clears checked-off Products and carries the rest over', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Milk', 1);
-    const eggs = account.addProductByName('Eggs', 0);
-    const rice = account.addProductByName('Rice', 0);
+    const milk = addStocked(account, 'Milk', 1);
+    const eggs = addStocked(account, 'Eggs', 0);
+    const rice = addStocked(account, 'Rice', 0);
     for (const id of [milk, eggs, rice]) account.addToShoppingList(id);
     account.setBuyQuantity(milk, 2);
     account.setBuyQuantity(rice, 4);
@@ -503,7 +506,7 @@ describe('Shopping List', () => {
   it('is sorted by name', () => {
     const { account } = setup();
     for (const name of ['rice', 'Bear Brand Milk', 'Carrots']) {
-      account.addToShoppingList(account.addProductByName(name, 0));
+      account.addToShoppingList(addStocked(account, name, 0));
     }
     expect(names(account.shoppingList())).toEqual(['Bear Brand Milk', 'Carrots', 'rice']);
   });
@@ -520,7 +523,7 @@ describe('Shopping List', () => {
 
   it('typing the name of a Catalog Product adds that Product, not a copy', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Bear Brand Milk', 2);
+    const milk = addStocked(account, 'Bear Brand Milk', 2);
     expect(account.addToShoppingListByName('bear brand milk ')).toBe(milk);
     expect(account.catalog()).toHaveLength(1);
     expect(account.shoppingList()).toMatchObject([{ id: milk, count: 2 }]);
@@ -534,8 +537,8 @@ describe('Shopping List', () => {
 
   it('never gets a Product without a direct add', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Milk', 1);
-    const rice = account.addProductByName('Rice', 0);
+    const milk = addStocked(account, 'Milk', 1);
+    const rice = addStocked(account, 'Rice', 0);
     account.decrement(milk);
     account.setCount(rice, 3);
     account.setCount(rice, 0);
@@ -554,7 +557,7 @@ describe('Shopping List', () => {
 
   it('ignores a buy quantity for a Product not on the list', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 0);
+    const eggs = addStocked(account, 'Eggs', 0);
     account.setBuyQuantity(eggs, 4);
     expect(account.shoppingList()).toEqual([]);
   });
@@ -563,14 +566,14 @@ describe('Shopping List', () => {
 describe('Low Stock', () => {
   it('is off by default', () => {
     const { account } = setup();
-    account.addProductByName('Eggs', 1);
+    addStocked(account, 'Eggs', 1);
     expect(account.catalog()[0].lowStockThreshold).toBeNull();
     expect(account.lowStock()).toEqual([]);
   });
 
   it('flags a count above 0 and at or below the threshold', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 4);
+    const eggs = addStocked(account, 'Eggs', 4);
     account.setLowStockThreshold(eggs, 3);
     expect(account.lowStock()).toEqual([]);
     account.decrement(eggs);
@@ -583,7 +586,7 @@ describe('Low Stock', () => {
 
   it('stops flagging when the threshold is turned off', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 2);
+    const eggs = addStocked(account, 'Eggs', 2);
     account.setLowStockThreshold(eggs, 2);
     account.setLowStockThreshold(eggs, null);
     expect(account.lowStock()).toEqual([]);
@@ -594,7 +597,7 @@ describe('Low Stock', () => {
 
   it('keeps the threshold a whole number', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 2);
+    const eggs = addStocked(account, 'Eggs', 2);
     account.setLowStockThreshold(eggs, 2.7);
     expect(account.catalog()[0].lowStockThreshold).toBe(2);
     account.setLowStockThreshold(eggs, Number.NaN);
@@ -604,7 +607,7 @@ describe('Low Stock', () => {
   it('is sorted by name', () => {
     const { account } = setup();
     for (const name of ['rice', 'Bear Brand Milk', 'Carrots']) {
-      account.setLowStockThreshold(account.addProductByName(name, 1), 1);
+      account.setLowStockThreshold(addStocked(account, name, 1), 1);
     }
     expect(names(account.lowStock())).toEqual(['Bear Brand Milk', 'Carrots', 'rice']);
   });
@@ -613,7 +616,7 @@ describe('Low Stock', () => {
 describe('Out of Stock', () => {
   it('flags a Product whose count drops from 1 or more to 0', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 2);
+    const eggs = addStocked(account, 'Eggs', 2);
     account.decrement(eggs);
     expect(account.outOfStock()).toEqual([]);
     account.decrement(eggs);
@@ -623,7 +626,7 @@ describe('Out of Stock', () => {
 
   it('does not flag a Product that was never at home', () => {
     const { account } = setup();
-    const rice = account.addProductByName('Rice', 0);
+    const rice = addStocked(account, 'Rice', 0);
     account.setCount(rice, 0);
     account.decrement(rice);
     account.addToShoppingListByName('Fish Sauce');
@@ -633,14 +636,14 @@ describe('Out of Stock', () => {
 
   it('flags a count set straight to 0', () => {
     const { account } = setup();
-    const rice = account.addProductByName('Rice', 5);
+    const rice = addStocked(account, 'Rice', 5);
     account.setCount(rice, 0);
     expect(names(account.outOfStock())).toEqual(['Rice']);
   });
 
   it('still shows a Product that is on the Shopping List, with its entry', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 1);
+    const eggs = addStocked(account, 'Eggs', 1);
     account.decrement(eggs);
     account.addToShoppingList(eggs);
     expect(account.outOfStock()).toMatchObject([
@@ -652,7 +655,7 @@ describe('Out of Stock', () => {
 
   it('stays hidden when dismissed, even on the Shopping List', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 1);
+    const eggs = addStocked(account, 'Eggs', 1);
     account.decrement(eggs);
     account.dismissOutOfStock(eggs);
     account.addToShoppingList(eggs);
@@ -661,7 +664,7 @@ describe('Out of Stock', () => {
 
   it('clears when stock is added again', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 1);
+    const eggs = addStocked(account, 'Eggs', 1);
     account.decrement(eggs);
     account.increment(eggs);
     expect(account.outOfStock()).toEqual([]);
@@ -670,7 +673,7 @@ describe('Out of Stock', () => {
 
   it('clears when the Product is checked off the Shopping List', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 1);
+    const eggs = addStocked(account, 'Eggs', 1);
     account.decrement(eggs);
     account.addToShoppingList(eggs);
     account.checkOff(eggs);
@@ -681,7 +684,7 @@ describe('Out of Stock', () => {
 
   it('comes back when a check-off is undone back to 0', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 1);
+    const eggs = addStocked(account, 'Eggs', 1);
     account.decrement(eggs);
     account.addToShoppingList(eggs);
     account.checkOff(eggs);
@@ -692,7 +695,7 @@ describe('Out of Stock', () => {
 
   it('can be dismissed; the Product stays in the Catalog', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 1);
+    const eggs = addStocked(account, 'Eggs', 1);
     account.decrement(eggs);
     account.dismissOutOfStock(eggs);
     expect(account.outOfStock()).toEqual([]);
@@ -701,7 +704,7 @@ describe('Out of Stock', () => {
 
   it('forgets a dismiss once stock is added again', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 1);
+    const eggs = addStocked(account, 'Eggs', 1);
     account.decrement(eggs);
     account.dismissOutOfStock(eggs);
     account.increment(eggs);
@@ -712,7 +715,7 @@ describe('Out of Stock', () => {
 
   it('ignores a dismiss for a Product that is not Out of Stock', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 1);
+    const eggs = addStocked(account, 'Eggs', 1);
     account.dismissOutOfStock(eggs);
     account.decrement(eggs);
     expect(names(account.outOfStock())).toEqual(['Eggs']);
@@ -722,8 +725,8 @@ describe('Out of Stock', () => {
 describe('stock flags', () => {
   it('never add a Product to the Shopping List', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 3);
-    const milk = account.addProductByName('Milk', 1);
+    const eggs = addStocked(account, 'Eggs', 3);
+    const milk = addStocked(account, 'Milk', 1);
     account.setLowStockThreshold(eggs, 2);
     account.decrement(eggs);
     account.decrement(milk);
@@ -734,7 +737,7 @@ describe('stock flags', () => {
 
   it('let a flagged Product be added to the Shopping List', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 1);
+    const eggs = addStocked(account, 'Eggs', 1);
     account.setLowStockThreshold(eggs, 1);
     account.addToShoppingList(eggs);
     expect(names(account.shoppingList())).toEqual(['Eggs']);
@@ -744,13 +747,13 @@ describe('stock flags', () => {
 describe('Price', () => {
   it('is off by default', () => {
     const { account } = setup();
-    account.addProductByName('Eggs', 1);
+    addStocked(account, 'Eggs', 1);
     expect(account.catalog()[0].price).toBeNull();
   });
 
   it('can be set in whole or decimal pesos, changed, and cleared', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 1);
+    const eggs = addStocked(account, 'Eggs', 1);
     account.setPrice(eggs, 85);
     expect(account.catalog()[0].price).toBe(85);
     account.setPrice(eggs, 12.5);
@@ -761,7 +764,7 @@ describe('Price', () => {
 
   it('rejects negative, non-number, and sub-centavo amounts', () => {
     const { account } = setup();
-    const eggs = account.addProductByName('Eggs', 1);
+    const eggs = addStocked(account, 'Eggs', 1);
     account.setPrice(eggs, 85);
     for (const bad of [-1, Number.NaN, Number.POSITIVE_INFINITY, 1.005]) {
       expect(() => account.setPrice(eggs, bad)).toThrow();

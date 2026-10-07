@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { normalizeBarcode, type Account, type Product } from '../core/account';
 import { useAccount } from '../data/AccountProvider';
-import { CatalogEditor, formatPeso, parsePrice, PRICE_ERROR, Thumbnail } from './productParts';
+import { formatPeso, parsePrice, PRICE_ERROR } from '../core/price';
+import { CatalogEditor, Thumbnail } from './productParts';
 
 export function CatalogScreen() {
   const { account, loaded } = useAccount();

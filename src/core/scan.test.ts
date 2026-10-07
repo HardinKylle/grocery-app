@@ -29,6 +29,14 @@ function setup(hits: Record<string, LookupHit> = {}) {
 
 type TestAccount = ReturnType<typeof setup>['account'];
 
+/** A Catalog Product with `count` at home, added the way the app does it. */
+function addStocked(account: TestAccount, name: string, count: number) {
+  const id = account.addProduct({ name });
+  if (count > 0) account.addToInventory(id, count, null);
+  return id;
+}
+
+
 function productOf(account: TestAccount, id: string) {
   return account.catalog().find((p) => p.id === id);
 }
@@ -38,7 +46,7 @@ const BEAR_BRAND = '4800361339421';
 describe('scan in Inventory mode, known Barcode', () => {
   it('adds 1 to the count right away', async () => {
     const { account } = setup();
-    const milk = account.addProductByName('Bear Brand Milk', 2);
+    const milk = addStocked(account, 'Bear Brand Milk', 2);
     account.linkBarcode(milk, BEAR_BRAND);
 
     const result = await account.scan(BEAR_BRAND, 'inventory');
@@ -49,7 +57,7 @@ describe('scan in Inventory mode, known Barcode', () => {
 
   it('can be undone', async () => {
     const { account } = setup();
-    const milk = account.addProductByName('Bear Brand Milk', 0);
+    const milk = addStocked(account, 'Bear Brand Milk', 0);
     account.linkBarcode(milk, BEAR_BRAND);
 
     const result = await account.scan(BEAR_BRAND, 'inventory');
@@ -62,7 +70,7 @@ describe('scan in Inventory mode, known Barcode', () => {
 
   it('brings an Out of Stock Product back, and undo puts it back in Out of Stock', async () => {
     const { account } = setup();
-    const milk = account.addProductByName('Bear Brand Milk', 1);
+    const milk = addStocked(account, 'Bear Brand Milk', 1);
     account.linkBarcode(milk, BEAR_BRAND);
     account.decrement(milk);
 
@@ -78,7 +86,7 @@ describe('scan in Inventory mode, known Barcode', () => {
 describe('scan in Shopping List mode, known Barcode', () => {
   it('puts the Product on the Shopping List with a buy quantity of 1', async () => {
     const { account } = setup();
-    const milk = account.addProductByName('Bear Brand Milk', 1);
+    const milk = addStocked(account, 'Bear Brand Milk', 1);
     account.linkBarcode(milk, BEAR_BRAND);
 
     const result = await account.scan(BEAR_BRAND, 'shoppingList');
@@ -91,7 +99,7 @@ describe('scan in Shopping List mode, known Barcode', () => {
 
   it('adds 1 to the buy quantity when the Product is already on the list', async () => {
     const { account } = setup();
-    const milk = account.addProductByName('Bear Brand Milk', 0);
+    const milk = addStocked(account, 'Bear Brand Milk', 0);
     account.linkBarcode(milk, BEAR_BRAND);
 
     await account.scan(BEAR_BRAND, 'shoppingList');
@@ -103,7 +111,7 @@ describe('scan in Shopping List mode, known Barcode', () => {
 
   it('undo takes a newly added Product off the list again', async () => {
     const { account } = setup();
-    const milk = account.addProductByName('Bear Brand Milk', 0);
+    const milk = addStocked(account, 'Bear Brand Milk', 0);
     account.linkBarcode(milk, BEAR_BRAND);
 
     const result = await account.scan(BEAR_BRAND, 'shoppingList');
@@ -115,7 +123,7 @@ describe('scan in Shopping List mode, known Barcode', () => {
 
   it('undo takes the extra 1 off the buy quantity', async () => {
     const { account } = setup();
-    const milk = account.addProductByName('Bear Brand Milk', 0);
+    const milk = addStocked(account, 'Bear Brand Milk', 0);
     account.linkBarcode(milk, BEAR_BRAND);
     account.addToShoppingList(milk);
     account.setBuyQuantity(milk, 3);
@@ -129,7 +137,7 @@ describe('scan in Shopping List mode, known Barcode', () => {
 
   it('leaves a checked-off entry alone', async () => {
     const { account } = setup();
-    const milk = account.addProductByName('Bear Brand Milk', 0);
+    const milk = addStocked(account, 'Bear Brand Milk', 0);
     account.linkBarcode(milk, BEAR_BRAND);
     account.addToShoppingList(milk);
     account.checkOff(milk);
@@ -196,7 +204,7 @@ describe('scan, unknown Barcode', () => {
   it('never looks up a known Barcode, so known Barcodes work offline', async () => {
     const { account, barcodeLookup } = setup();
     barcodeLookup.online = false;
-    const milk = account.addProductByName('Bear Brand Milk', 0);
+    const milk = addStocked(account, 'Bear Brand Milk', 0);
     account.linkBarcode(milk, BEAR_BRAND);
 
     await account.scan(BEAR_BRAND, 'inventory');
@@ -251,7 +259,7 @@ describe('resolveScan', () => {
 
   it('a typed name that matches a Catalog Product uses that Product', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Bear Brand Milk', 2);
+    const milk = addStocked(account, 'Bear Brand Milk', 2);
 
     account.resolveScan(BEAR_BRAND, 'inventory', { name: 'bear brand milk' });
 
@@ -266,7 +274,7 @@ describe('resolveScan', () => {
 
   it('linking to an existing Product adds the Barcode and applies the Scan Mode', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Bear Brand Milk', 1);
+    const milk = addStocked(account, 'Bear Brand Milk', 1);
     account.linkBarcode(milk, '4800361000001');
 
     const result = account.resolveScan(BEAR_BRAND, 'inventory', { productId: milk, photoUrl });
@@ -279,7 +287,7 @@ describe('resolveScan', () => {
 
   it('linking keeps a photo the Product already has', () => {
     const { account } = setup();
-    const milk = account.addProductByName('Bear Brand Milk', 1);
+    const milk = addStocked(account, 'Bear Brand Milk', 1);
     account.resolveScan('4800361000001', 'inventory', { productId: milk, photoUrl: 'first.jpg' });
 
     account.resolveScan(BEAR_BRAND, 'inventory', { productId: milk, photoUrl: 'second.jpg' });
@@ -302,7 +310,7 @@ describe('resolveScan', () => {
 describe('Barcode linking', () => {
   it('a Product can have many Barcodes, and each scans to it', async () => {
     const { account } = setup();
-    const milk = account.addProductByName('Bear Brand Milk', 0);
+    const milk = addStocked(account, 'Bear Brand Milk', 0);
     account.linkBarcode(milk, '4800361000001');
     account.linkBarcode(milk, '4800361000002');
 
@@ -317,8 +325,8 @@ describe('Barcode linking', () => {
 
   it('a Barcode belongs to at most one Product: linking moves it', async () => {
     const { account } = setup();
-    const milk = account.addProductByName('Bear Brand Milk', 0);
-    const coffee = account.addProductByName('Coffee', 0);
+    const milk = addStocked(account, 'Bear Brand Milk', 0);
+    const coffee = addStocked(account, 'Coffee', 0);
     account.linkBarcode(milk, BEAR_BRAND);
 
     account.linkBarcode(coffee, BEAR_BRAND);
@@ -330,7 +338,7 @@ describe('Barcode linking', () => {
 
   it('unlinkBarcode forgets the Barcode, so the next scan is unknown', async () => {
     const { account } = setup();
-    const milk = account.addProductByName('Bear Brand Milk', 1);
+    const milk = addStocked(account, 'Bear Brand Milk', 1);
     account.linkBarcode(milk, BEAR_BRAND);
 
     account.unlinkBarcode(milk, BEAR_BRAND);
@@ -341,7 +349,7 @@ describe('Barcode linking', () => {
 
   it('deleting a Product forgets its Barcodes', async () => {
     const { account } = setup();
-    const milk = account.addProductByName('Bear Brand Milk', 1);
+    const milk = addStocked(account, 'Bear Brand Milk', 1);
     account.linkBarcode(milk, BEAR_BRAND);
 
     account.deleteProduct(milk);
@@ -351,7 +359,7 @@ describe('Barcode linking', () => {
 
   it('a 12-digit UPC-A and its 13-digit EAN form are the same Barcode', async () => {
     const { account, barcodeLookup } = setup();
-    const chips = account.addProductByName('Chips', 0);
+    const chips = addStocked(account, 'Chips', 0);
     account.linkBarcode(chips, '012345678905');
 
     await account.scan('0012345678905', 'inventory');
@@ -372,7 +380,7 @@ describe('Barcode linking', () => {
 
   it('rejects a Barcode that is not digits', async () => {
     const { account } = setup();
-    const milk = account.addProductByName('Bear Brand Milk', 0);
+    const milk = addStocked(account, 'Bear Brand Milk', 0);
     await expect(account.scan('', 'inventory')).rejects.toThrow();
     expect(() => account.linkBarcode(milk, 'abc')).toThrow();
   });

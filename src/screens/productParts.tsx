@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import type { Account, IsoDate, Product } from '../core/account';
+import { parsePrice, PRICE_ERROR } from '../core/price';
 
 /** − [count] + controls. The count field can be typed into directly. */
 export function CountStepper({ account, product }: { account: Account; product: Product }) {
@@ -66,26 +67,6 @@ export function Thumbnail({ product }: { product: Product }) {
     </span>
   );
 }
-
-/** "₱42.50" */
-export function formatPeso(amount: number): string {
-  return `₱${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-/**
- * Reads a typed Price. Blank means no Price (null). Returns undefined when
- * the text is not a number; the core rejects the rest (negative, too many
- * decimals).
- */
-export function parsePrice(raw: string): number | null | undefined {
-  const text = raw.trim().replace(/^₱/, '').replace(/,/g, '');
-  if (text === '') return null;
-  if (!/^\d*\.?\d*$/.test(text)) return undefined;
-  const n = Number(text);
-  return Number.isFinite(n) ? n : undefined;
-}
-
-export const PRICE_ERROR = 'Enter pesos, like 45 or 12.50.';
 
 /** Inventory editor: the Expiry Date. Everything else is in the Catalog. */
 export function InventoryEditor({ account, product }: { account: Account; product: Product }) {
