@@ -7,6 +7,7 @@ import { ShoppingListScreen } from './screens/ShoppingListScreen';
 import { InventoryScreen } from './screens/InventoryScreen';
 import { CatalogScreen } from './screens/CatalogScreen';
 import { AccountProvider } from './data/AccountProvider';
+import { useDeviceTokenRefresh, useNotificationRoutes } from './data/notifications';
 
 export function App() {
   return (
@@ -35,6 +36,8 @@ const tabs = [
 ];
 
 function Shell({ user }: { user: User }) {
+  useDeviceTokenRefresh(user.uid);
+  useNotificationRoutes();
   return (
     <AccountProvider uid={user.uid}>
       <div className="shell">

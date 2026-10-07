@@ -8,6 +8,8 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_MESSAGING_SENDER_ID: string;
   readonly VITE_FIREBASE_APP_ID: string;
   readonly VITE_USE_EMULATORS: string;
+  /** Web Push public key (VAPID). Empty until set; see .env. */
+  readonly VITE_FIREBASE_VAPID_KEY?: string;
 }
 
 interface ImportMeta {

@@ -125,7 +125,8 @@ button {
 }
 
 /* Inputs: 16px stops iOS Safari zooming on focus. */
-input {
+input,
+select {
   font: inherit;
   font-size: 16px;
   color: var(--fg);
@@ -326,4 +327,9 @@ input {
 
 .field .muted.small {
   margin: 0;
+}
+
+.settings-heading {
+  font-size: 1.1rem;
+  margin: 1.5rem 0 0.5rem;
 }
