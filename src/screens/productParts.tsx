@@ -117,6 +117,33 @@ export function ProductEditor({ account, product }: { account: Account; product:
         )}
       </div>
 
+      <div className="field">
+        <label htmlFor={`threshold-${product.id}`}>Low Stock Threshold</label>
+        <input
+          id={`threshold-${product.id}`}
+          key={product.lowStockThreshold ?? 'off'}
+          className="threshold"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          step={1}
+          placeholder="Off"
+          defaultValue={product.lowStockThreshold ?? ''}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur();
+          }}
+          onBlur={(e) => {
+            const raw = e.currentTarget.value.trim();
+            account.setLowStockThreshold(product.id, raw === '' ? null : Number(raw));
+            // Show what was kept (e.g. 0 turns it off, 2.7 becomes 2).
+            e.currentTarget.value = String(
+              account.catalog().find((p) => p.id === product.id)?.lowStockThreshold ?? '',
+            );
+          }}
+        />
+        <p className="muted small">Flag as Low Stock at or below this count. Leave empty for off.</p>
+      </div>
+
       {product.shoppingList ? (
         <p className="muted small">On the Shopping List.</p>
       ) : (
