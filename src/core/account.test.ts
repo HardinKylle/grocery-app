@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createAccount } from './account';
 import { createMemoryStorage } from './memoryStorage';
 import type { Clock } from './ports';
+import { productFromData } from './product';
 
 const fixedClock: Clock = { now: () => new Date('2026-10-07T08:00:00+08:00') };
 
@@ -615,5 +616,38 @@ describe('stock flags', () => {
     account.setLowStockThreshold(eggs, 1);
     account.addToShoppingList(eggs);
     expect(names(account.shoppingList())).toEqual(['Eggs']);
+  });
+});
+
+describe('Price', () => {
+  it('is off by default', () => {
+    const { account } = setup();
+    account.addProductByName('Eggs', 1);
+    expect(account.catalog()[0].price).toBeNull();
+  });
+
+  it('can be set in whole or decimal pesos, changed, and cleared', () => {
+    const { account } = setup();
+    const eggs = account.addProductByName('Eggs', 1);
+    account.setPrice(eggs, 85);
+    expect(account.catalog()[0].price).toBe(85);
+    account.setPrice(eggs, 12.5);
+    expect(account.catalog()[0].price).toBe(12.5);
+    account.setPrice(eggs, null);
+    expect(account.catalog()[0].price).toBeNull();
+  });
+
+  it('rejects negative, non-number, and sub-centavo amounts', () => {
+    const { account } = setup();
+    const eggs = account.addProductByName('Eggs', 1);
+    account.setPrice(eggs, 85);
+    for (const bad of [-1, Number.NaN, Number.POSITIVE_INFINITY, 1.005]) {
+      expect(() => account.setPrice(eggs, bad)).toThrow();
+    }
+    expect(account.catalog()[0].price).toBe(85);
+  });
+
+  it('is read as off from older Products saved without one', () => {
+    expect(productFromData('old', { name: 'Rice', count: 1 }).price).toBeNull();
   });
 });

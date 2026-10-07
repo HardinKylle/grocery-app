@@ -54,6 +54,11 @@ export type Account = ScanCommands & {
    */
   setLowStockThreshold(productId: string, threshold: number | null): void;
   /**
+   * Sets the Price in pesos, or clears it with null. Throws unless it is a
+   * number of 0 or more with at most two decimals (centavos).
+   */
+  setPrice(productId: string, price: number | null): void;
+  /**
    * Hides an Out of Stock Product from the Out of Stock section. It stays in
    * the Catalog. Ignored if the Product is not Out of Stock.
    */
@@ -104,6 +109,7 @@ export function createAccount({
       lowStockThreshold: null,
       expiryDate: null,
       photoUrl: null,
+      price: null,
       outOfStock: false,
       dismissed: false,
       shoppingList: null,
@@ -204,6 +210,13 @@ export function createAccount({
       put({ ...product, lowStockThreshold: next });
     },
 
+    setPrice(productId, price) {
+      const next = price === null ? null : validPrice(price);
+      const product = find(productId);
+      if (!product || product.price === next) return;
+      put({ ...product, price: next });
+    },
+
     dismissOutOfStock(productId) {
       const product = find(productId);
       if (!product?.outOfStock || product.dismissed) return;
@@ -298,6 +311,15 @@ function productName(name: string): string {
   const trimmed = name.trim();
   if (!trimmed) throw new Error('A Product needs a name.');
   return trimmed;
+}
+
+/** A Price of 0 or more pesos, in whole centavos. Throws otherwise. */
+function validPrice(price: number): number {
+  const centavos = Math.round(price * 100);
+  if (!Number.isFinite(price) || price < 0 || Math.abs(price * 100 - centavos) > 1e-6) {
+    throw new Error(`Not a Price in pesos: ${price}`);
+  }
+  return centavos / 100;
 }
 
 /** A whole number, at least 0. Undefined when `n` is not a number. */

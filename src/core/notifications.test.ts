@@ -20,6 +20,7 @@ function product(name: string, fields: Partial<Product> = {}): Product {
     lowStockThreshold: null,
     expiryDate: null,
     photoUrl: null,
+    price: null,
     outOfStock: false,
     dismissed: false,
     shoppingList: null,

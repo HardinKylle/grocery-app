@@ -23,6 +23,8 @@ export type Product = {
   expiryDate: IsoDate | null;
   /** From Open Food Facts only. */
   photoUrl: string | null;
+  /** Price in pesos (centavos allowed), or null when not set. */
+  price: number | null;
   /** Set when count drops from 1 or more to 0. */
   outOfStock: boolean;
   /** Hidden from the Out of Stock section. */
@@ -47,6 +49,7 @@ export function productFromData(id: string, data: { readonly [field: string]: un
     lowStockThreshold: typeof data.lowStockThreshold === 'number' ? data.lowStockThreshold : null,
     expiryDate: typeof data.expiryDate === 'string' ? data.expiryDate : null,
     photoUrl: typeof data.photoUrl === 'string' ? data.photoUrl : null,
+    price: typeof data.price === 'number' ? data.price : null,
     outOfStock: data.outOfStock === true,
     dismissed: data.dismissed === true,
     shoppingList:
