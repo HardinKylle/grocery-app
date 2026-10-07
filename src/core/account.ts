@@ -25,6 +25,13 @@ export type Account = ScanCommands & {
   inventory(): Product[];
   /** Products on the Shopping List, checked off or not, sorted by name. */
   shoppingList(): Product[];
+  /** Low Stock Products: count above 0 and at or below their threshold. Sorted by name. */
+  lowStock(): Product[];
+  /**
+   * Out of Stock Products to show: not dismissed and not on the Shopping
+   * List. Sorted by name.
+   */
+  outOfStock(): Product[];
   /** Every Product, sorted by name. `search` matches part of the name. */
   catalog(search?: string): Product[];
   /** Adds a Product to the Catalog and returns its id. */
@@ -41,6 +48,16 @@ export type Account = ScanCommands & {
    * Throws if `date` is not a 'YYYY-MM-DD' calendar day.
    */
   setExpiryDate(productId: string, date: IsoDate | null): void;
+  /**
+   * Sets the Low Stock Threshold to a whole number of 1 or more, or turns it
+   * off with null (0 also turns it off, since nothing above 0 is at or below 0).
+   */
+  setLowStockThreshold(productId: string, threshold: number | null): void;
+  /**
+   * Hides an Out of Stock Product from the Out of Stock section. It stays in
+   * the Catalog. Ignored if the Product is not Out of Stock.
+   */
+  dismissOutOfStock(productId: string): void;
   /** Puts a Catalog Product on the Shopping List with a buy quantity of 1. */
   addToShoppingList(productId: string): void;
   /**
@@ -118,6 +135,20 @@ export function createAccount({
     subscribe: (listener) => storage.subscribe(listener),
     inventory: () => byName(storage.products().filter((p) => p.count >= 1)),
     shoppingList: () => byName(storage.products().filter((p) => p.shoppingList !== null)),
+    lowStock: () =>
+      byName(
+        storage
+          .products()
+          .filter(
+            (p) => p.lowStockThreshold !== null && p.count > 0 && p.count <= p.lowStockThreshold,
+          ),
+      ),
+    outOfStock: () =>
+      byName(
+        storage
+          .products()
+          .filter((p) => p.outOfStock && !p.dismissed && p.shoppingList === null),
+      ),
     catalog(search = '') {
       const needle = search.trim().toLowerCase();
       return byName(storage.products().filter((p) => p.name.toLowerCase().includes(needle)));
@@ -158,6 +189,25 @@ export function createAccount({
       const product = find(productId);
       if (!product || product.count === 0) return;
       put({ ...product, expiryDate: date });
+    },
+
+    setLowStockThreshold(productId, threshold) {
+      const product = find(productId);
+      if (!product) return;
+      let next: number | null = null;
+      if (threshold !== null) {
+        const whole = wholeCount(threshold);
+        if (whole === undefined) return;
+        next = whole === 0 ? null : whole;
+      }
+      if (next === product.lowStockThreshold) return;
+      put({ ...product, lowStockThreshold: next });
+    },
+
+    dismissOutOfStock(productId) {
+      const product = find(productId);
+      if (!product?.outOfStock || product.dismissed) return;
+      put({ ...product, dismissed: true });
     },
 
     addToShoppingList(productId) {
@@ -227,6 +277,13 @@ function withCount(product: Product, count: number): Product {
     count,
     // Nothing left at home, so no Expiry Date to track.
     expiryDate: count === 0 ? null : product.expiryDate,
+    ...(count > 0
+      ? // Stock is back: no longer Out of Stock, and a past dismiss is forgotten.
+        { outOfStock: false, dismissed: false }
+      : product.count > 0
+        ? // Dropped from 1 or more to 0. Created-at-0 never gets here.
+          { outOfStock: true, dismissed: false }
+        : {}),
   };
 }
 
