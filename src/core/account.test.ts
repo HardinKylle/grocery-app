@@ -244,3 +244,206 @@ describe('catalog', () => {
     expect(names(account.catalog(''))).toHaveLength(3);
   });
 });
+
+describe('Shopping List', () => {
+  function entry(account: ReturnType<typeof setup>['account'], id: string) {
+    return account.shoppingList().find((p) => p.id === id)?.shoppingList;
+  }
+
+  it('takes any Catalog Product, with a buy quantity of 1, not checked off', () => {
+    const { account } = setup();
+    const rice = account.addProductByName('Rice', 0);
+    account.addProductByName('Eggs', 6);
+    account.addToShoppingList(rice);
+    expect(names(account.shoppingList())).toEqual(['Rice']);
+    expect(entry(account, rice)).toEqual({ buyQuantity: 1, checkedOff: false });
+  });
+
+  it('keeps the entry as it is when the Product is added again', () => {
+    const { account } = setup();
+    const rice = account.addProductByName('Rice', 0);
+    account.addToShoppingList(rice);
+    account.setBuyQuantity(rice, 3);
+    account.checkOff(rice);
+    account.addToShoppingList(rice);
+    expect(entry(account, rice)).toEqual({ buyQuantity: 3, checkedOff: true });
+    expect(countOf(account, rice)).toBe(3);
+  });
+
+  it('lets the buy quantity change, as a whole number of at least 1', () => {
+    const { account } = setup();
+    const eggs = account.addProductByName('Eggs', 0);
+    account.addToShoppingList(eggs);
+    account.setBuyQuantity(eggs, 12);
+    expect(entry(account, eggs)?.buyQuantity).toBe(12);
+    account.setBuyQuantity(eggs, 2.8);
+    expect(entry(account, eggs)?.buyQuantity).toBe(2);
+    account.setBuyQuantity(eggs, 0);
+    expect(entry(account, eggs)?.buyQuantity).toBe(1);
+    account.setBuyQuantity(eggs, Number.NaN);
+    expect(entry(account, eggs)?.buyQuantity).toBe(1);
+  });
+
+  it('keeps the buy quantity fixed while checked off, so un-checking undoes exactly', () => {
+    const { account } = setup();
+    const eggs = account.addProductByName('Eggs', 0);
+    account.addToShoppingList(eggs);
+    account.setBuyQuantity(eggs, 2);
+    account.checkOff(eggs);
+    account.setBuyQuantity(eggs, 5);
+    expect(entry(account, eggs)?.buyQuantity).toBe(2);
+    expect(countOf(account, eggs)).toBe(2);
+  });
+
+  it('checking off adds the buy quantity to the count at once and keeps the entry crossed out', () => {
+    const { account } = setup();
+    const milk = account.addProductByName('Milk', 1);
+    account.addToShoppingList(milk);
+    account.setBuyQuantity(milk, 3);
+    account.checkOff(milk);
+    expect(countOf(account, milk)).toBe(4);
+    expect(account.shoppingList()).toMatchObject([
+      { id: milk, shoppingList: { buyQuantity: 3, checkedOff: true } },
+    ]);
+  });
+
+  it('checking off twice adds only once', () => {
+    const { account } = setup();
+    const milk = account.addProductByName('Milk', 0);
+    account.addToShoppingList(milk);
+    account.checkOff(milk);
+    account.checkOff(milk);
+    expect(countOf(account, milk)).toBe(1);
+  });
+
+  it('a checked-off Product shows in the Inventory', () => {
+    const { account } = setup();
+    const rice = account.addProductByName('Rice', 0);
+    account.addToShoppingList(rice);
+    account.checkOff(rice);
+    expect(names(account.inventory())).toEqual(['Rice']);
+  });
+
+  it('un-checking subtracts the buy quantity again', () => {
+    const { account } = setup();
+    const milk = account.addProductByName('Milk', 1);
+    account.addToShoppingList(milk);
+    account.setBuyQuantity(milk, 3);
+    account.checkOff(milk);
+    account.uncheck(milk);
+    expect(countOf(account, milk)).toBe(1);
+    expect(entry(account, milk)).toEqual({ buyQuantity: 3, checkedOff: false });
+    account.uncheck(milk);
+    expect(countOf(account, milk)).toBe(1);
+  });
+
+  it('un-checking never takes the count below 0', () => {
+    const { account } = setup();
+    const milk = account.addProductByName('Milk', 0);
+    account.addToShoppingList(milk);
+    account.setBuyQuantity(milk, 3);
+    account.checkOff(milk);
+    account.decrement(milk);
+    account.decrement(milk);
+    account.uncheck(milk);
+    expect(countOf(account, milk)).toBe(0);
+  });
+
+  it('un-checking down to 0 clears the Expiry Date', () => {
+    const { account } = setup();
+    const milk = account.addProductByName('Milk', 0);
+    account.addToShoppingList(milk);
+    account.checkOff(milk);
+    account.setExpiryDate(milk, '2026-10-12');
+    account.uncheck(milk);
+    expect(account.catalog()[0].expiryDate).toBeNull();
+  });
+
+  it('can remove a Product without buying it; it stays in the Catalog', () => {
+    const { account } = setup();
+    const milk = account.addProductByName('Milk', 2);
+    account.addToShoppingList(milk);
+    account.removeFromShoppingList(milk);
+    expect(account.shoppingList()).toEqual([]);
+    expect(account.catalog()).toMatchObject([{ id: milk, count: 2, shoppingList: null }]);
+  });
+
+  it('Done Shopping clears checked-off Products and carries the rest over', () => {
+    const { account } = setup();
+    const milk = account.addProductByName('Milk', 1);
+    const eggs = account.addProductByName('Eggs', 0);
+    const rice = account.addProductByName('Rice', 0);
+    for (const id of [milk, eggs, rice]) account.addToShoppingList(id);
+    account.setBuyQuantity(milk, 2);
+    account.setBuyQuantity(rice, 4);
+    account.checkOff(milk);
+    account.checkOff(eggs);
+    account.doneShopping();
+    expect(account.shoppingList()).toMatchObject([
+      { id: rice, shoppingList: { buyQuantity: 4, checkedOff: false } },
+    ]);
+    // Counts added at check-off are kept.
+    expect(countOf(account, milk)).toBe(3);
+    expect(countOf(account, eggs)).toBe(1);
+    expect(countOf(account, rice)).toBe(0);
+  });
+
+  it('is sorted by name', () => {
+    const { account } = setup();
+    for (const name of ['rice', 'Bear Brand Milk', 'Carrots']) {
+      account.addToShoppingList(account.addProductByName(name, 0));
+    }
+    expect(names(account.shoppingList())).toEqual(['Bear Brand Milk', 'Carrots', 'rice']);
+  });
+
+  it('typing a new name creates a Catalog Product at count 0 and adds it', () => {
+    const { account } = setup();
+    const id = account.addToShoppingListByName(' Fish Sauce ');
+    expect(account.catalog()).toMatchObject([{ id, name: 'Fish Sauce', count: 0 }]);
+    expect(account.shoppingList()).toMatchObject([
+      { id, shoppingList: { buyQuantity: 1, checkedOff: false } },
+    ]);
+    expect(account.inventory()).toEqual([]);
+  });
+
+  it('typing the name of a Catalog Product adds that Product, not a copy', () => {
+    const { account } = setup();
+    const milk = account.addProductByName('Bear Brand Milk', 2);
+    expect(account.addToShoppingListByName('bear brand milk ')).toBe(milk);
+    expect(account.catalog()).toHaveLength(1);
+    expect(account.shoppingList()).toMatchObject([{ id: milk, count: 2 }]);
+  });
+
+  it('typing a blank name adds nothing', () => {
+    const { account } = setup();
+    expect(() => account.addToShoppingListByName('  ')).toThrow();
+    expect(account.catalog()).toEqual([]);
+  });
+
+  it('never gets a Product without a direct add', () => {
+    const { account } = setup();
+    const milk = account.addProductByName('Milk', 1);
+    const rice = account.addProductByName('Rice', 0);
+    account.decrement(milk);
+    account.setCount(rice, 3);
+    account.setCount(rice, 0);
+    account.renameProduct(milk, 'Fresh Milk');
+    account.setExpiryDate(rice, '2026-10-12');
+    account.doneShopping();
+    expect(account.shoppingList()).toEqual([]);
+  });
+
+  it('loses a Product when the Product is deleted', () => {
+    const { account } = setup();
+    const milk = account.addToShoppingListByName('Milk');
+    account.deleteProduct(milk);
+    expect(account.shoppingList()).toEqual([]);
+  });
+
+  it('ignores a buy quantity for a Product not on the list', () => {
+    const { account } = setup();
+    const eggs = account.addProductByName('Eggs', 0);
+    account.setBuyQuantity(eggs, 4);
+    expect(account.shoppingList()).toEqual([]);
+  });
+});

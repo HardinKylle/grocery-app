@@ -2,7 +2,7 @@
 // No UI or Firebase code belongs in src/core.
 
 import type { AccountStorage, Clock } from './ports';
-import type { IsoDate, Product } from './product';
+import type { IsoDate, Product, ShoppingListEntry } from './product';
 
 export type { IsoDate, Product, ShoppingListEntry } from './product';
 export type { AccountStorage, Change, Clock } from './ports';
@@ -12,6 +12,7 @@ export type Account = {
   subscribe(listener: () => void): () => void;
   /** Products at home (count 1 or more), sorted by name. */
   inventory(): Product[];
+  /** Products on the Shopping List, checked off or not, sorted by name. */
   shoppingList(): Product[];
   /** Every Product, sorted by name. `search` matches part of the name. */
   catalog(search?: string): Product[];
@@ -29,6 +30,23 @@ export type Account = {
    * Throws if `date` is not a 'YYYY-MM-DD' calendar day.
    */
   setExpiryDate(productId: string, date: IsoDate | null): void;
+  /** Puts a Catalog Product on the Shopping List with a buy quantity of 1. */
+  addToShoppingList(productId: string): void;
+  /**
+   * Adds the Catalog Product with this name (ignoring case), or creates one
+   * at count 0, and puts it on the Shopping List. Returns its id. Throws if
+   * the name is blank.
+   */
+  addToShoppingListByName(name: string): string;
+  setBuyQuantity(productId: string, quantity: number): void;
+  /** Adds the buy quantity to the count at once; the entry stays, crossed out. */
+  checkOff(productId: string): void;
+  /** Undoes a check-off: subtracts the buy quantity again (never below 0). */
+  uncheck(productId: string): void;
+  /** Takes the Product off the list. Any count added by a check-off stays. */
+  removeFromShoppingList(productId: string): void;
+  /** Ends the trip: removes checked-off entries, keeps the rest. */
+  doneShopping(): void;
 };
 
 export function createAccount({
@@ -46,44 +64,63 @@ export function createAccount({
     storage.commit([{ kind: 'putProduct', product }]);
   }
 
-  // Every count change goes through here, so count rules live in one place.
+  function newProduct(name: string, count: number): Product {
+    return {
+      id: storage.newId(),
+      name: productName(name),
+      count,
+      barcodes: [],
+      lowStockThreshold: null,
+      expiryDate: null,
+      photoUrl: null,
+      outOfStock: false,
+      dismissed: false,
+      shoppingList: null,
+      addedAt: clock.now().toISOString(),
+    };
+  }
+
   function changeCount(productId: string, next: (count: number) => number) {
     const product = find(productId);
     if (!product) return;
     const count = wholeCount(next(product.count));
     if (count === undefined || count === product.count) return;
-    put({
-      ...product,
-      count,
-      // Nothing left at home, so no Expiry Date to track.
-      expiryDate: count === 0 ? null : product.expiryDate,
-    });
+    put(withCount(product, count));
+  }
+
+  // Changes only the Shopping List entry of a Product that is on the list.
+  function changeEntry(
+    productId: string,
+    next: (product: Product, entry: ShoppingListEntry) => Product,
+  ) {
+    const product = find(productId);
+    if (!product?.shoppingList) return;
+    const updated = next(product, product.shoppingList);
+    if (updated !== product) put(updated);
   }
 
   return {
     subscribe: (listener) => storage.subscribe(listener),
     inventory: () => byName(storage.products().filter((p) => p.count >= 1)),
-    shoppingList: () => [],
+    shoppingList: () => byName(storage.products().filter((p) => p.shoppingList !== null)),
     catalog(search = '') {
       const needle = search.trim().toLowerCase();
       return byName(storage.products().filter((p) => p.name.toLowerCase().includes(needle)));
     },
 
     addProductByName(name, count) {
-      const product: Product = {
-        id: storage.newId(),
-        name: productName(name),
-        count: wholeCount(count) ?? 0,
-        barcodes: [],
-        lowStockThreshold: null,
-        expiryDate: null,
-        photoUrl: null,
-        outOfStock: false,
-        dismissed: false,
-        shoppingList: null,
-        addedAt: clock.now().toISOString(),
-      };
+      const product = newProduct(name, wholeCount(count) ?? 0);
       put(product);
+      return product.id;
+    },
+
+    addToShoppingListByName(name) {
+      const wanted = productName(name).toLowerCase();
+      const existing = storage.products().find((p) => p.name.toLowerCase() === wanted);
+      const product = existing ?? newProduct(name, 0);
+      if (!product.shoppingList) {
+        put({ ...product, shoppingList: { buyQuantity: 1, checkedOff: false } });
+      }
       return product.id;
     },
 
@@ -107,6 +144,69 @@ export function createAccount({
       if (!product || product.count === 0) return;
       put({ ...product, expiryDate: date });
     },
+
+    addToShoppingList(productId) {
+      const product = find(productId);
+      if (!product || product.shoppingList) return;
+      put({ ...product, shoppingList: { buyQuantity: 1, checkedOff: false } });
+    },
+
+    setBuyQuantity(productId, quantity) {
+      const whole = wholeCount(quantity);
+      if (whole === undefined) return;
+      const buyQuantity = Math.max(1, whole);
+      changeEntry(productId, (product, entry) =>
+        // Locked while checked off: un-check must subtract what was added.
+        entry.checkedOff ? product : { ...product, shoppingList: { ...entry, buyQuantity } },
+      );
+    },
+
+    checkOff(productId) {
+      changeEntry(productId, (product, entry) =>
+        entry.checkedOff
+          ? product
+          : {
+              ...withCount(product, product.count + entry.buyQuantity),
+              shoppingList: { ...entry, checkedOff: true },
+            },
+      );
+    },
+
+    uncheck(productId) {
+      changeEntry(productId, (product, entry) =>
+        entry.checkedOff
+          ? {
+              ...withCount(product, Math.max(0, product.count - entry.buyQuantity)),
+              shoppingList: { ...entry, checkedOff: false },
+            }
+          : product,
+      );
+    },
+
+    removeFromShoppingList(productId) {
+      changeEntry(productId, (product) => ({ ...product, shoppingList: null }));
+    },
+
+    doneShopping() {
+      const checked = storage.products().filter((p) => p.shoppingList?.checkedOff);
+      if (checked.length === 0) return;
+      storage.commit(
+        checked.map((product) => ({
+          kind: 'putProduct',
+          product: { ...product, shoppingList: null },
+        })),
+      );
+    },
+  };
+}
+
+// Every count change goes through here, so count rules live in one place.
+function withCount(product: Product, count: number): Product {
+  return {
+    ...product,
+    count,
+    // Nothing left at home, so no Expiry Date to track.
+    expiryDate: count === 0 ? null : product.expiryDate,
   };
 }
 
