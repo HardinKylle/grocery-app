@@ -55,7 +55,7 @@ export function ExpiryLabel({ date }: { date: IsoDate }) {
   );
 }
 
-/** Rename, Expiry Date, add to Shopping List, and delete for one Product. */
+/** Photo, rename, Expiry Date, Barcodes, add to Shopping List, and delete. */
 export function ProductEditor({ account, product }: { account: Account; product: Product }) {
   const [name, setName] = useState(product.name);
   const [error, setError] = useState<string>();
@@ -80,6 +80,9 @@ export function ProductEditor({ account, product }: { account: Account; product:
 
   return (
     <div className="editor">
+      {product.photoUrl && (
+        <img className="photo" src={product.photoUrl} alt="" referrerPolicy="no-referrer" />
+      )}
       <form onSubmit={rename} className="field">
         <label htmlFor={`name-${product.id}`}>Name</label>
         <input
@@ -117,6 +120,8 @@ export function ProductEditor({ account, product }: { account: Account; product:
         )}
       </div>
 
+      <BarcodeList account={account} product={product} />
+
       {product.shoppingList ? (
         <p className="muted small">On the Shopping List.</p>
       ) : (
@@ -132,6 +137,34 @@ export function ProductEditor({ account, product }: { account: Account; product:
       <button type="button" className="button-danger" onClick={remove}>
         Delete Product
       </button>
+    </div>
+  );
+}
+
+/** The Product's Barcodes, each with Unlink. New ones are linked by scanning. */
+function BarcodeList({ account, product }: { account: Account; product: Product }) {
+  return (
+    <div className="field">
+      <span className="label">Barcodes</span>
+      {product.barcodes.length === 0 ? (
+        <p className="muted small">None. Scan one and pick “Link to an existing Product”.</p>
+      ) : (
+        <ul className="barcodes">
+          {product.barcodes.map((barcode) => (
+            <li key={barcode} className="row">
+              <span className="barcode">{barcode}</span>
+              <button
+                type="button"
+                className="button-link"
+                aria-label={`Unlink Barcode ${barcode}`}
+                onClick={() => account.unlinkBarcode(product.id, barcode)}
+              >
+                Unlink
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

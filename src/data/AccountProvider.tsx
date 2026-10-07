@@ -9,12 +9,14 @@ import {
 import { createAccount, type Account } from '../core/account';
 import { db } from '../firebase';
 import { createFirestoreStorage, type FirestoreStorage } from './firestoreStorage';
+import { createOpenFoodFactsLookup } from './openFoodFacts';
 
 type AccountContextValue = { account: Account; source: FirestoreStorage };
 
 const AccountContext = createContext<AccountContextValue | null>(null);
 
 const systemClock = { now: () => new Date() };
+const barcodeLookup = createOpenFoodFactsLookup();
 
 /** Opens the signed-in Account's data for the screens below it. */
 export function AccountProvider({ uid, children }: { uid: string; children: ReactNode }) {
@@ -24,7 +26,10 @@ export function AccountProvider({ uid, children }: { uid: string; children: Reac
   // ends with a live listener.
   useEffect(() => {
     const source = createFirestoreStorage(db, uid);
-    setValue({ source, account: createAccount({ storage: source.storage, clock: systemClock }) });
+    setValue({
+      source,
+      account: createAccount({ storage: source.storage, clock: systemClock, barcodeLookup }),
+    });
     return () => source.dispose();
   }, [uid]);
 

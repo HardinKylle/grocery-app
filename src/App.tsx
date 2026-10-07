@@ -6,6 +6,7 @@ import { SettingsScreen } from './screens/SettingsScreen';
 import { ShoppingListScreen } from './screens/ShoppingListScreen';
 import { InventoryScreen } from './screens/InventoryScreen';
 import { CatalogScreen } from './screens/CatalogScreen';
+import { ScanScreen } from './screens/ScanScreen';
 import { AccountProvider } from './data/AccountProvider';
 
 export function App() {
@@ -30,6 +31,7 @@ function Gate() {
 const tabs = [
   { to: '/inventory', label: 'Inventory' },
   { to: '/shopping-list', label: 'Shopping List' },
+  { to: '/scan', label: 'Scan' },
   { to: '/catalog', label: 'Catalog' },
   { to: '/settings', label: 'Settings' },
 ];
@@ -42,6 +44,7 @@ function Shell({ user }: { user: User }) {
           <Routes>
             <Route path="/inventory" element={<InventoryScreen />} />
             <Route path="/shopping-list" element={<ShoppingListScreen />} />
+            <Route path="/scan" element={<ScanScreen />} />
             <Route path="/catalog" element={<CatalogScreen />} />
             <Route path="/settings" element={<SettingsScreen user={user} />} />
             <Route path="*" element={<Navigate to="/inventory" replace />} />
