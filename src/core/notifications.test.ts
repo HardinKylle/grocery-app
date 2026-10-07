@@ -125,21 +125,21 @@ describe('dueNotifications: Shopping Day message', () => {
     const result = due(
       at('2026-10-07T08:00:00'),
       [
-        product('Eggs', { shoppingList: { buyQuantity: 2, checkedOff: false } }),
-        product('Coffee', { count: 0, shoppingList: { buyQuantity: 1, checkedOff: false } }),
-        product('Bread', { shoppingList: { buyQuantity: 1, checkedOff: true } }),
+        product('Eggs', { shoppingList: { buyQuantity: 2, checkedOff: false, beforeCheckOff: null } }),
+        product('Coffee', { count: 0, shoppingList: { buyQuantity: 1, checkedOff: false, beforeCheckOff: null } }),
+        product('Bread', { shoppingList: { buyQuantity: 1, checkedOff: true, beforeCheckOff: null } }),
         product('Rice', { count: 1, lowStockThreshold: 2 }),
         product('Oil', {
           count: 1,
           lowStockThreshold: 1,
-          shoppingList: { buyQuantity: 1, checkedOff: false },
+          shoppingList: { buyQuantity: 1, checkedOff: false, beforeCheckOff: null },
         }),
         product('Soap', { count: 0, outOfStock: true }),
         product('Salt', { count: 0, outOfStock: true, dismissed: true }),
         product('Sugar', {
           count: 0,
           outOfStock: true,
-          shoppingList: { buyQuantity: 1, checkedOff: false },
+          shoppingList: { buyQuantity: 1, checkedOff: false, beforeCheckOff: null },
         }),
         product('Milk', { expiryDate: '2026-10-08' }),
       ],

@@ -3,7 +3,7 @@
 
 import type { AccountStorage, BarcodeLookup, Clock } from './ports';
 import { toCentavos, toPesos, validPrice } from './price';
-import type { IsoDate, Product, ShoppingListEntry } from './product';
+import { newEntry, type IsoDate, type Product, type ShoppingListEntry } from './product';
 import {
   createScanCommands,
   linkChanges,
@@ -218,7 +218,7 @@ export function createAccount({
       const existing = storage.products().find((p) => p.name.toLowerCase() === wanted);
       const product = existing ?? newProduct(name, 0);
       if (!product.shoppingList) {
-        put({ ...product, shoppingList: { buyQuantity: 1, checkedOff: false } });
+        put({ ...product, shoppingList: newEntry(1) });
       }
       return product.id;
     },
@@ -278,7 +278,7 @@ export function createAccount({
       // Locked while checked off: un-check must subtract what was added.
       if (entry?.checkedOff) return;
       const buyQuantity = (entry?.buyQuantity ?? 0) + added;
-      put({ ...product, shoppingList: { buyQuantity, checkedOff: false } });
+      put({ ...product, shoppingList: newEntry(buyQuantity) });
     },
 
     setBuyQuantity(productId, quantity) {
@@ -297,20 +297,33 @@ export function createAccount({
           ? product
           : {
               ...withCount(product, product.count + entry.buyQuantity),
-              shoppingList: { ...entry, checkedOff: true },
+              shoppingList: {
+                ...entry,
+                checkedOff: true,
+                beforeCheckOff: {
+                  count: product.count,
+                  expiryDate: product.expiryDate,
+                  outOfStock: product.outOfStock,
+                  dismissed: product.dismissed,
+                },
+              },
             },
       );
     },
 
     uncheck(productId) {
-      changeEntry(productId, (product, entry) =>
-        entry.checkedOff
-          ? {
-              ...withCount(product, Math.max(0, product.count - entry.buyQuantity)),
-              shoppingList: { ...entry, checkedOff: false },
-            }
-          : product,
-      );
+      changeEntry(productId, (product, entry) => {
+        if (!entry.checkedOff) return product;
+        const before = entry.beforeCheckOff;
+        const count = Math.max(0, product.count - entry.buyQuantity);
+        return {
+          // Back where it was before the check-off: put back the stock state
+          // too, so a Product never at home is not made Out of Stock and a
+          // dismiss is kept. If the count moved since, the count rules apply.
+          ...(before?.count === count ? { ...product, ...before } : withCount(product, count)),
+          shoppingList: newEntry(entry.buyQuantity),
+        };
+      });
     },
 
     removeFromShoppingList(productId) {

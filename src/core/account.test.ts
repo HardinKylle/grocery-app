@@ -345,14 +345,14 @@ describe('Shopping List', () => {
     addStocked(account, 'Eggs', 6);
     account.addToShoppingList(rice);
     expect(names(account.shoppingList())).toEqual(['Rice']);
-    expect(entry(account, rice)).toEqual({ buyQuantity: 1, checkedOff: false });
+    expect(entry(account, rice)).toMatchObject({ buyQuantity: 1, checkedOff: false });
   });
 
   it('takes a chosen buy quantity', () => {
     const { account } = setup();
     const rice = account.addProduct({ name: 'Rice' });
     account.addToShoppingList(rice, 3);
-    expect(entry(account, rice)).toEqual({ buyQuantity: 3, checkedOff: false });
+    expect(entry(account, rice)).toMatchObject({ buyQuantity: 3, checkedOff: false });
   });
 
   it('adds to the buy quantity when the Product is already on the list', () => {
@@ -361,7 +361,7 @@ describe('Shopping List', () => {
     account.addToShoppingList(rice, 2);
     account.addToShoppingList(rice, 3);
     account.addToShoppingList(rice);
-    expect(entry(account, rice)).toEqual({ buyQuantity: 6, checkedOff: false });
+    expect(entry(account, rice)).toMatchObject({ buyQuantity: 6, checkedOff: false });
   });
 
   it('adds whole units of at least 1', () => {
@@ -371,7 +371,7 @@ describe('Shopping List', () => {
     account.addToShoppingList(rice, Number.NaN);
     expect(account.shoppingList()).toEqual([]);
     account.addToShoppingList(rice, 2.9);
-    expect(entry(account, rice)).toEqual({ buyQuantity: 2, checkedOff: false });
+    expect(entry(account, rice)).toMatchObject({ buyQuantity: 2, checkedOff: false });
   });
 
   it('keeps a checked-off entry as it is when the Product is added again', () => {
@@ -381,7 +381,7 @@ describe('Shopping List', () => {
     account.setBuyQuantity(rice, 3);
     account.checkOff(rice);
     account.addToShoppingList(rice, 2);
-    expect(entry(account, rice)).toEqual({ buyQuantity: 3, checkedOff: true });
+    expect(entry(account, rice)).toMatchObject({ buyQuantity: 3, checkedOff: true });
     expect(countOf(account, rice)).toBe(3);
   });
 
@@ -447,9 +447,67 @@ describe('Shopping List', () => {
     account.checkOff(milk);
     account.uncheck(milk);
     expect(countOf(account, milk)).toBe(1);
-    expect(entry(account, milk)).toEqual({ buyQuantity: 3, checkedOff: false });
+    expect(entry(account, milk)).toMatchObject({ buyQuantity: 3, checkedOff: false });
     account.uncheck(milk);
     expect(countOf(account, milk)).toBe(1);
+  });
+
+  it('un-checking a Product that was never at home does not make it Out of Stock', () => {
+    const { account } = setup();
+    const rice = account.addProduct({ name: 'Rice' });
+    account.addToShoppingList(rice);
+    account.checkOff(rice);
+    account.uncheck(rice);
+    expect(countOf(account, rice)).toBe(0);
+    expect(account.outOfStock()).toEqual([]);
+    expect(account.catalog()[0].outOfStock).toBe(false);
+  });
+
+  it('un-checking keeps a dismissed Out of Stock Product dismissed', () => {
+    const { account } = setup();
+    const eggs = addStocked(account, 'Eggs', 1);
+    account.decrement(eggs);
+    account.dismissOutOfStock(eggs);
+    account.addToShoppingList(eggs);
+    account.checkOff(eggs);
+    account.uncheck(eggs);
+    expect(account.outOfStock()).toEqual([]);
+    expect(account.catalog()[0]).toMatchObject({ count: 0, outOfStock: true, dismissed: true });
+  });
+
+  it('un-checking puts back the Expiry Date from before the check-off', () => {
+    const { account } = setup();
+    const milk = addStocked(account, 'Milk', 1);
+    account.setExpiryDate(milk, '2026-10-20');
+    account.addToShoppingList(milk);
+    account.checkOff(milk);
+    account.setExpiryDate(milk, '2026-10-12');
+    account.uncheck(milk);
+    expect(account.catalog()[0]).toMatchObject({ count: 1, expiryDate: '2026-10-20' });
+  });
+
+  it('un-checking after the count changed just subtracts, by the count rules', () => {
+    const { account } = setup();
+    const milk = addStocked(account, 'Milk', 2);
+    account.addToShoppingList(milk);
+    account.setBuyQuantity(milk, 3);
+    account.checkOff(milk);
+    account.setCount(milk, 3);
+    account.uncheck(milk);
+    // It was at home and is now gone: Out of Stock.
+    expect(account.catalog()[0]).toMatchObject({ count: 0, outOfStock: true });
+  });
+
+  it('un-checks an entry checked off before the stock state was saved', () => {
+    const old = productFromData('milk', {
+      name: 'Milk',
+      count: 3,
+      shoppingList: { buyQuantity: 2, checkedOff: true },
+    });
+    expect(old.shoppingList).toEqual({ buyQuantity: 2, checkedOff: true, beforeCheckOff: null });
+    const account = createAccount({ storage: createMemoryStorage([old]), clock: fixedClock });
+    account.uncheck('milk');
+    expect(account.catalog()[0]).toMatchObject({ count: 1, shoppingList: { checkedOff: false } });
   });
 
   it('un-checking never takes the count below 0', () => {

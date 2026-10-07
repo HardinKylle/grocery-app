@@ -1,10 +1,25 @@
 /** An Expiry Date as a calendar day, 'YYYY-MM-DD'. No time or zone. */
 export type IsoDate = string;
 
+/** A Product's stock state, saved at check-off so un-check can put it back. */
+export type StockBefore = {
+  count: number;
+  expiryDate: IsoDate | null;
+  outOfStock: boolean;
+  dismissed: boolean;
+};
+
 export type ShoppingListEntry = {
   buyQuantity: number;
   checkedOff: boolean;
+  /** Stock state from just before the check-off. Null while not checked off. */
+  beforeCheckOff: StockBefore | null;
 };
+
+/** A fresh, not-checked-off Shopping List entry. */
+export function newEntry(buyQuantity: number): ShoppingListEntry {
+  return { buyQuantity, checkedOff: false, beforeCheckOff: null };
+}
 
 /**
  * A Product as stored. Every field is always present (null, not missing)
@@ -40,7 +55,10 @@ export type Product = {
  * lack. Keeps old data readable as later tickets add fields.
  */
 export function productFromData(id: string, data: { readonly [field: string]: unknown }): Product {
-  const entry = data.shoppingList as { buyQuantity?: unknown; checkedOff?: unknown } | null | undefined;
+  const entry = data.shoppingList as
+    | { buyQuantity?: unknown; checkedOff?: unknown; beforeCheckOff?: unknown }
+    | null
+    | undefined;
   return {
     id,
     name: typeof data.name === 'string' ? data.name : '',
@@ -54,8 +72,25 @@ export function productFromData(id: string, data: { readonly [field: string]: un
     dismissed: data.dismissed === true,
     shoppingList:
       entry && typeof entry === 'object'
-        ? { buyQuantity: Number(entry.buyQuantity) || 1, checkedOff: entry.checkedOff === true }
+        ? {
+            buyQuantity: Number(entry.buyQuantity) || 1,
+            checkedOff: entry.checkedOff === true,
+            beforeCheckOff: entry.checkedOff === true ? stockBeforeFrom(entry.beforeCheckOff) : null,
+          }
         : null,
     addedAt: typeof data.addedAt === 'string' ? data.addedAt : '',
+  };
+}
+
+// Older docs have no beforeCheckOff; un-check then falls back to subtracting.
+function stockBeforeFrom(value: unknown): StockBefore | null {
+  if (!value || typeof value !== 'object') return null;
+  const v = value as { [field: string]: unknown };
+  if (typeof v.count !== 'number') return null;
+  return {
+    count: v.count,
+    expiryDate: typeof v.expiryDate === 'string' ? v.expiryDate : null,
+    outOfStock: v.outOfStock === true,
+    dismissed: v.dismissed === true,
   };
 }

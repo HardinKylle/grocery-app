@@ -2,7 +2,7 @@
 // mixes these commands in.
 
 import type { AccountStorage, BarcodeLookup, Change, LookupHit } from './ports';
-import type { Product } from './product';
+import { newEntry, type Product } from './product';
 
 /** Where scans go. */
 export type ScanMode = 'inventory' | 'shoppingList';
@@ -111,7 +111,7 @@ export function createScanCommands({
     const entry = product.shoppingList;
     if (!entry) {
       return {
-        product: { ...product, shoppingList: { buyQuantity: 1, checkedOff: false } },
+        product: { ...product, shoppingList: newEntry(1) },
         effect: 'addedToList',
       };
     }
