@@ -55,10 +55,71 @@ export function ExpiryLabel({ date }: { date: IsoDate }) {
   );
 }
 
-/** Photo, rename, Expiry Date, Barcodes, add to Shopping List, and delete. */
-export function ProductEditor({ account, product }: { account: Account; product: Product }) {
+/** The Open Food Facts photo, or the name's first letter when there is none. */
+export function Thumbnail({ product }: { product: Product }) {
+  if (product.photoUrl) {
+    return <img className="thumb" src={product.photoUrl} alt="" referrerPolicy="no-referrer" />;
+  }
+  return (
+    <span className="thumb thumb-letter" aria-hidden="true">
+      {product.name.charAt(0).toUpperCase()}
+    </span>
+  );
+}
+
+/** "₱42.50" */
+export function formatPeso(amount: number): string {
+  return `₱${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/**
+ * Reads a typed Price. Blank means no Price (null). Returns undefined when
+ * the text is not a number; the core rejects the rest (negative, too many
+ * decimals).
+ */
+export function parsePrice(raw: string): number | null | undefined {
+  const text = raw.trim().replace(/^₱/, '').replace(/,/g, '');
+  if (text === '') return null;
+  if (!/^\d*\.?\d*$/.test(text)) return undefined;
+  const n = Number(text);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+export const PRICE_ERROR = 'Enter pesos, like 45 or 12.50.';
+
+/** Inventory editor: the Expiry Date. Everything else is in the Catalog. */
+export function InventoryEditor({ account, product }: { account: Account; product: Product }) {
+  return (
+    <div className="editor">
+      <div className="field">
+        <label htmlFor={`expiry-${product.id}`}>Expiry Date</label>
+        <div className="row">
+          <input
+            id={`expiry-${product.id}`}
+            type="date"
+            value={product.expiryDate ?? ''}
+            onChange={(e) => account.setExpiryDate(product.id, e.target.value || null)}
+          />
+          {product.expiryDate && (
+            <button
+              type="button"
+              className="button-link"
+              onClick={() => account.setExpiryDate(product.id, null)}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Catalog editor: name, Price, Barcodes, Low Stock Threshold, and delete. */
+export function CatalogEditor({ account, product }: { account: Account; product: Product }) {
   const [name, setName] = useState(product.name);
   const [error, setError] = useState<string>();
+  const [priceError, setPriceError] = useState<string>();
 
   function rename(e?: FormEvent) {
     e?.preventDefault();
@@ -69,6 +130,18 @@ export function ProductEditor({ account, product }: { account: Account; product:
     } catch {
       setError('A Product needs a name.');
       setName(product.name);
+    }
+  }
+
+  function savePrice(input: HTMLInputElement) {
+    const price = parsePrice(input.value);
+    try {
+      if (price === undefined) throw new Error('Not a number');
+      account.setPrice(product.id, price);
+      setPriceError(undefined);
+      input.value = price === null ? '' : String(price);
+    } catch {
+      setPriceError(PRICE_ERROR);
     }
   }
 
@@ -96,29 +169,28 @@ export function ProductEditor({ account, product }: { account: Account; product:
       {error && <p className="field-error">{error}</p>}
 
       <div className="field">
-        <label htmlFor={`expiry-${product.id}`}>Expiry Date</label>
-        {product.count > 0 ? (
-          <div className="row">
-            <input
-              id={`expiry-${product.id}`}
-              type="date"
-              value={product.expiryDate ?? ''}
-              onChange={(e) => account.setExpiryDate(product.id, e.target.value || null)}
-            />
-            {product.expiryDate && (
-              <button
-                type="button"
-                className="button-link"
-                onClick={() => account.setExpiryDate(product.id, null)}
-              >
-                Clear
-              </button>
-            )}
-          </div>
+        <label htmlFor={`price-${product.id}`}>Price (₱)</label>
+        <input
+          id={`price-${product.id}`}
+          key={product.price ?? 'none'}
+          className="price-input"
+          type="text"
+          inputMode="decimal"
+          placeholder="None"
+          defaultValue={product.price ?? ''}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur();
+          }}
+          onBlur={(e) => savePrice(e.currentTarget)}
+        />
+        {priceError ? (
+          <p className="field-error">{priceError}</p>
         ) : (
-          <p className="muted small">Add stock to set an Expiry Date.</p>
+          <p className="muted small">Leave empty for no Price.</p>
         )}
       </div>
+
+      <BarcodeList account={account} product={product} />
 
       <div className="field">
         <label htmlFor={`threshold-${product.id}`}>Low Stock Threshold</label>
@@ -147,20 +219,6 @@ export function ProductEditor({ account, product }: { account: Account; product:
         <p className="muted small">Flag as Low Stock at or below this count. Leave empty for off.</p>
       </div>
 
-      <BarcodeList account={account} product={product} />
-
-      {product.shoppingList ? (
-        <p className="muted small">On the Shopping List.</p>
-      ) : (
-        <button
-          type="button"
-          className="button-secondary add-to-list"
-          onClick={() => account.addToShoppingList(product.id)}
-        >
-          Add to Shopping List
-        </button>
-      )}
-
       <button type="button" className="button-danger" onClick={remove}>
         Delete Product
       </button>
@@ -168,13 +226,28 @@ export function ProductEditor({ account, product }: { account: Account; product:
   );
 }
 
-/** The Product's Barcodes, each with Unlink. New ones are linked by scanning. */
+/** The Product's Barcodes, each with Unlink, plus a field to link one. */
 function BarcodeList({ account, product }: { account: Account; product: Product }) {
+  const [code, setCode] = useState('');
+  const [error, setError] = useState<string>();
+
+  function link(e: FormEvent) {
+    e.preventDefault();
+    if (!code.trim()) return;
+    try {
+      account.linkBarcode(product.id, code);
+      setCode('');
+      setError(undefined);
+    } catch {
+      setError('A Barcode is 6 to 14 digits.');
+    }
+  }
+
   return (
     <div className="field">
       <span className="label">Barcodes</span>
       {product.barcodes.length === 0 ? (
-        <p className="muted small">None. Scan one and pick “Link to an existing Product”.</p>
+        <p className="muted small">None yet.</p>
       ) : (
         <ul className="barcodes">
           {product.barcodes.map((barcode) => (
@@ -192,6 +265,21 @@ function BarcodeList({ account, product }: { account: Account; product: Product 
           ))}
         </ul>
       )}
+      <form className="row" onSubmit={link}>
+        <input
+          className="grow"
+          aria-label={`Link a Barcode to ${product.name}`}
+          placeholder="Type a Barcode to link"
+          inputMode="numeric"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+        />
+        <button type="submit" className="button-secondary" disabled={!code.trim()}>
+          Link
+        </button>
+      </form>
+      {error && <p className="field-error">{error}</p>}
+      <p className="muted small">Linking moves the Barcode off any other Product.</p>
     </div>
   );
 }

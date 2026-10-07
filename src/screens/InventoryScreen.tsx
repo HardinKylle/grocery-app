@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { Account, Product } from '../core/account';
 import { useAccount } from '../data/AccountProvider';
-import { CountStepper, ExpiryLabel, ProductEditor } from './productParts';
+import { CountStepper, ExpiryLabel, InventoryEditor } from './productParts';
 
 export function InventoryScreen() {
   const { account, loaded } = useAccount();
@@ -20,7 +20,7 @@ export function InventoryScreen() {
         <>
           {products.length === 0 ? (
             <p className="empty">
-              Nothing at home yet. Add Products in the <Link to="/catalog">Catalog</Link>.
+              Nothing at home yet. Use + on a Product in the <Link to="/catalog">Catalog</Link>.
             </p>
           ) : (
             <ul className="products">
@@ -38,7 +38,7 @@ export function InventoryScreen() {
                     </button>
                     <CountStepper account={account} product={product} />
                   </div>
-                  {openId === product.id && <ProductEditor account={account} product={product} />}
+                  {openId === product.id && <InventoryEditor account={account} product={product} />}
                 </li>
               ))}
             </ul>

@@ -308,6 +308,46 @@ select {
   margin-top: 1rem;
 }
 
+.estimate {
+  margin: 0.75rem 0 0;
+}
+
+.add-product-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.add-product-form .row input {
+  min-width: 0;
+}
+
+.add-product-form button {
+  padding: 0.6rem 1rem;
+}
+
+.thumb {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  border-radius: 0.4rem;
+  background: var(--line);
+  object-fit: contain;
+}
+
+.thumb-letter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.price-input {
+  width: 8rem;
+}
+
 .stock-section {
   margin-top: 1.5rem;
 }

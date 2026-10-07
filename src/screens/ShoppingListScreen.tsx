@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { useAccount } from '../data/AccountProvider';
 import type { Account, Product } from '../core/account';
+import { formatPeso } from './productParts';
 
 export function ShoppingListScreen() {
   const { account, loaded } = useAccount();
   const products = account.shoppingList();
   const checkedCount = products.filter((p) => p.shoppingList?.checkedOff).length;
+  const estimate = account.shoppingListEstimate();
 
   return (
     <section>
@@ -23,6 +25,16 @@ export function ShoppingListScreen() {
               <ListEntry key={product.id} account={account} product={product} />
             ))}
           </ul>
+          <p className="estimate" aria-live="polite">
+            <span>Estimated total</span> <strong>{formatPeso(estimate.total)}</strong>
+            {estimate.unpriced > 0 && (
+              <span className="muted small">
+                {' '}
+                ({estimate.unpriced === 1 ? '1 entry has' : `${estimate.unpriced} entries have`} no
+                Price)
+              </span>
+            )}
+          </p>
           <button
             type="button"
             className="button-primary done-shopping"
