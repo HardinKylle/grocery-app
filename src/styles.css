@@ -105,7 +105,7 @@ button {
   right: 0;
   bottom: 0;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   background: var(--bg);
   border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom);
@@ -236,7 +236,8 @@ select {
   gap: 0.3rem;
 }
 
-.field label {
+.field label,
+.field .label {
   font-size: 0.8rem;
   color: var(--muted);
 }
@@ -332,4 +333,145 @@ select {
 .settings-heading {
   font-size: 1.1rem;
   margin: 1.5rem 0 0.5rem;
+}
+
+.photo {
+  width: 4rem;
+  height: 4rem;
+  object-fit: contain;
+  border-radius: 0.5rem;
+  background: var(--line);
+  flex: none;
+}
+
+.barcodes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.barcode {
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.grow {
+  flex: 1;
+}
+
+/* Scan screen */
+.mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: var(--line);
+  border-radius: 0.8rem;
+  margin-bottom: 0.75rem;
+}
+
+.mode {
+  background: none;
+  color: var(--fg);
+  padding: 0.6rem 0.5rem;
+  font-size: 0.9rem;
+}
+
+.mode.selected {
+  background: var(--bg);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.viewfinder {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: #000;
+  border-radius: 0.8rem;
+  overflow: hidden;
+}
+
+.viewfinder video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.viewfinder-cover {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  color: #fff;
+  text-align: center;
+}
+
+.stop-camera {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.manual-entry {
+  margin-top: 0.75rem;
+}
+
+.manual-entry input {
+  flex: 1;
+}
+
+.toast {
+  position: fixed;
+  left: 1rem;
+  right: 1rem;
+  bottom: calc(env(safe-area-inset-bottom) + 4.5rem);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+  border-radius: 0.8rem;
+  background: var(--fg);
+  color: var(--bg);
+  z-index: 10;
+}
+
+.toast .button-link {
+  color: #8fd694;
+  font-weight: 600;
+}
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-end;
+  z-index: 20;
+}
+
+.sheet {
+  width: 100%;
+  max-height: 85dvh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: var(--bg);
+  border-radius: 1rem 1rem 0 0;
+  padding: 1.25rem 1.25rem calc(env(safe-area-inset-bottom) + 1rem);
+}
+
+.sheet h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.link-list {
+  max-height: 40dvh;
+  overflow-y: auto;
 }

@@ -1,13 +1,24 @@
 // The Account core: pure domain rules from GLOSSARY.md.
 // No UI or Firebase code belongs in src/core.
 
-import type { AccountStorage, Clock } from './ports';
+import type { AccountStorage, BarcodeLookup, Clock } from './ports';
 import type { IsoDate, Product, ShoppingListEntry } from './product';
+import { createScanCommands, type ScanCommands } from './scanning';
+
+export { normalizeBarcode } from './scanning';
 
 export type { IsoDate, Product, ShoppingListEntry } from './product';
-export type { AccountStorage, Change, Clock } from './ports';
+export type { AccountStorage, BarcodeLookup, Change, Clock, LookupHit } from './ports';
+export type {
+  ScanApplied,
+  ScanChoice,
+  ScanEffect,
+  ScanMode,
+  ScanResult,
+  ScanUnknown,
+} from './scanning';
 
-export type Account = {
+export type Account = ScanCommands & {
   /** Calls `listener` after any change, local or synced. Returns unsubscribe. */
   subscribe(listener: () => void): () => void;
   /** Products at home (count 1 or more), sorted by name. */
@@ -69,9 +80,12 @@ export type Account = {
 export function createAccount({
   storage,
   clock,
+  barcodeLookup = offlineLookup,
 }: {
   storage: AccountStorage;
   clock: Clock;
+  /** Defaults to one that is always offline. */
+  barcodeLookup?: BarcodeLookup;
 }): Account {
   function find(productId: string): Product | undefined {
     return storage.products().find((p) => p.id === productId);
@@ -117,6 +131,7 @@ export function createAccount({
   }
 
   return {
+    ...createScanCommands({ storage, barcodeLookup, find, newProduct, withCount }),
     subscribe: (listener) => storage.subscribe(listener),
     inventory: () => byName(storage.products().filter((p) => p.count >= 1)),
     shoppingList: () => byName(storage.products().filter((p) => p.shoppingList !== null)),
@@ -249,6 +264,11 @@ export function createAccount({
     },
   };
 }
+
+const offlineLookup: BarcodeLookup = {
+  isOnline: () => false,
+  lookup: async () => null,
+};
 
 // Every count change goes through here, so count rules live in one place.
 function withCount(product: Product, count: number): Product {
