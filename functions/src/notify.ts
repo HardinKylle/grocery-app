@@ -21,14 +21,22 @@ export type PushMessage = {
   route: string;
 };
 
-/** Sends one push to some device tokens. Returns tokens FCM no longer knows. */
-export type Sender = (tokens: string[], message: PushMessage) => Promise<{ staleTokens: string[] }>;
+/**
+ * Sends one push to some device tokens. Returns tokens FCM no longer knows
+ * and how many devices it was delivered to.
+ */
+export type Sender = (
+  tokens: string[],
+  message: PushMessage,
+) => Promise<{ staleTokens: string[]; delivered: number }>;
 
 /**
  * The hourly job. For each Account whose notification hour is now (Manila),
  * sends whatever dueNotifications says is due. Each message is claimed in a
  * transaction on accounts/{uid}/server/notifications before sending, so a
  * second run in the same hour (Cloud Scheduler can fire twice) sends nothing.
+ * If no device got it, the claim is released and `retryDate` set to today,
+ * so the next hourly run that day tries again.
  */
 export async function runHourly(db: Firestore, now: Date, send: Sender): Promise<void> {
   // listDocuments also returns Account docs that only have subcollections.
@@ -44,34 +52,50 @@ export async function runHourly(db: Firestore, now: Date, send: Sender): Promise
 
 async function notifyAccount(db: Firestore, account: DocumentReference, now: Date, send: Sender) {
   const settings = parseSettings((await account.collection('settings').doc('notifications').get()).data());
-  if (manilaTime(now).hour !== settings.notifyHour) return;
+  const today = manilaTime(now);
+  const stateRef = account.collection('server').doc('notifications');
+  const stateSnap = await stateRef.get();
+  const retry = stateSnap.get('retryDate') === today.date;
+  if (today.hour !== settings.notifyHour && !(retry && today.hour > settings.notifyHour)) return;
 
   const tokens = await deviceTokens(account);
   if (tokens.length === 0) return;
 
-  const stateRef = account.collection('server').doc('notifications');
-  const [productsSnap, stateSnap] = await Promise.all([
-    account.collection('products').get(),
-    stateRef.get(),
-  ]);
+  const productsSnap = await account.collection('products').get();
   const due = dueNotifications({
     now,
     settings,
     products: productsSnap.docs.map((d) => productFromData(d.id, d.data())),
     lastSent: lastSentFrom(stateSnap.data()),
+    retry,
   });
 
   for (const notification of due) {
-    const claimed = await db.runTransaction(async (tx) => {
-      const state = await tx.get(stateRef);
-      if (lastSentFrom(state.data())[notification.kind] === notification.date) return false;
-      tx.set(stateRef, { [notification.kind]: notification.date }, { merge: true });
-      return true;
+    const { kind, date, title, body, route } = notification;
+    // The claim: the day this kind was last sent before, or undefined if
+    // another run already has it.
+    const previous = await db.runTransaction(async (tx) => {
+      const last = lastSentFrom((await tx.get(stateRef)).data())[kind];
+      if (last === date) return undefined;
+      tx.set(stateRef, { [kind]: date }, { merge: true });
+      return { last };
     });
-    if (!claimed) continue;
-    const { kind, title, body, route } = notification;
-    await sendAndPrune(account, tokens, { kind, title, body, route }, send);
-    logger.info('Sent notification', { uid: account.id, kind, date: notification.date });
+    if (!previous) continue;
+
+    let delivered = 0;
+    try {
+      delivered = await sendAndPrune(account, tokens, { kind, title, body, route }, send);
+    } finally {
+      // Not delivered anywhere (thrown or zero): release for a retry.
+      if (delivered === 0) {
+        await stateRef.set({ [kind]: previous.last, retryDate: date }, { merge: true });
+      }
+    }
+    if (delivered === 0) {
+      logger.warn('Notification not delivered; will retry', { uid: account.id, kind, date });
+      continue;
+    }
+    logger.info('Sent notification', { uid: account.id, kind, date });
   }
 }
 
@@ -117,9 +141,13 @@ async function sendAndPrune(
   tokens: string[],
   message: PushMessage,
   send: Sender,
-) {
-  const { staleTokens } = await send(tokens, message);
-  await Promise.all(staleTokens.map((token) => account.collection('devices').doc(token).delete()));
+): Promise<number> {
+  const { staleTokens, delivered } = await send(tokens, message);
+  // A failed cleanup must not look like a failed send (that would resend).
+  await Promise.all(
+    staleTokens.map((token) => account.collection('devices').doc(token).delete()),
+  ).catch((error: unknown) => logger.warn('Could not remove stale tokens', { error }));
+  return delivered;
 }
 
 function lastSentFrom(data: { [field: string]: unknown } | undefined): LastSent {

@@ -29,6 +29,6 @@ export function fcmSender(messaging: Messaging): Sender {
       else otherErrors.push(code);
     });
     if (otherErrors.length > 0) logger.warn('Some pushes failed', { codes: otherErrors });
-    return { staleTokens };
+    return { staleTokens, delivered: response.successCount };
   };
 }

@@ -28,7 +28,8 @@ function fakeSender(stale: string[] = []): { send: Sender; sent: Sent[] } {
     sent,
     send: async (tokens, message) => {
       sent.push({ tokens, message });
-      return { staleTokens: tokens.filter((t) => stale.includes(t)) };
+      const staleTokens = tokens.filter((t) => stale.includes(t));
+      return { staleTokens, delivered: tokens.length - staleTokens.length };
     },
   };
 }
@@ -134,10 +135,57 @@ describe('runHourly', () => {
     const send: Sender = async (tokens) => {
       if (tokens.includes('a')) throw new Error('FCM down');
       sent.push(...tokens);
-      return { staleTokens: [] };
+      return { staleTokens: [], delivered: tokens.length };
     };
     await runHourly(db, eightAm, send);
     expect(sent).toEqual(['b']);
+  });
+
+  it('retries at the next run that day when the send failed', async () => {
+    await seedAccount('alice', { tokens: ['phone'], products: { milk } });
+    const failing: Sender = async () => {
+      throw new Error('FCM down');
+    };
+    await runHourly(db, eightAm, failing);
+
+    const { send, sent } = fakeSender();
+    await runHourly(db, new Date('2026-10-07T09:00:00+08:00'), send);
+    await runHourly(db, new Date('2026-10-07T10:00:00+08:00'), send);
+
+    expect(sent.map((s) => s.message.body)).toEqual(['Milk (tomorrow)']);
+  });
+
+  it('retries when FCM delivered to no device', async () => {
+    await seedAccount('alice', { tokens: ['phone', 'ipad'], products: { milk } });
+    const noneDelivered: Sender = async () => ({ staleTokens: [], delivered: 0 });
+    await runHourly(db, eightAm, noneDelivered);
+
+    const { send, sent } = fakeSender();
+    await runHourly(db, new Date('2026-10-07T09:00:00+08:00'), send);
+
+    expect(sent.map((s) => s.message.kind)).toEqual(['expiry']);
+  });
+
+  it('does not retry the next day, and only once even if the retry runs twice', async () => {
+    await seedAccount('alice', { tokens: ['phone'], products: { milk } });
+    await runHourly(db, eightAm, async () => ({ staleTokens: [], delivered: 0 }));
+
+    const { send, sent } = fakeSender();
+    const nine = new Date('2026-10-07T09:00:00+08:00');
+    await Promise.all([runHourly(db, nine, send), runHourly(db, nine, send)]);
+    // Next day, after the notification hour: yesterday's retry is over.
+    await runHourly(db, new Date('2026-10-08T09:00:00+08:00'), send);
+
+    expect(sent).toHaveLength(1);
+  });
+
+  it('does not send at a later hour when the notification hour went fine', async () => {
+    await seedAccount('alice', { tokens: ['phone'], products: { milk } });
+    const { send, sent } = fakeSender();
+    await runHourly(db, eightAm, send);
+    await seedAccount('alice', { settings: { shoppingDay: 3 } });
+    await runHourly(db, new Date('2026-10-07T09:00:00+08:00'), send);
+    expect(sent.map((s) => s.message.kind)).toEqual(['expiry']);
   });
 });
 

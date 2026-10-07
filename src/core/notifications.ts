@@ -66,7 +66,8 @@ export function manilaTime(now: Date): { date: IsoDate; hour: number; weekday: n
 
 /**
  * The notifications to send now. Nothing is due outside the notification
- * hour, and each kind goes out at most once per Manila day.
+ * hour, and each kind goes out at most once per Manila day. With `retry`
+ * (an earlier send today failed), any later hour of the day also counts.
  *
  * - Expiry alert: Products at home expiring within `expiryLeadDays`,
  *   including already expired. Skipped when there are none.
@@ -78,10 +79,12 @@ export function dueNotifications(input: {
   settings: NotificationSettings;
   products: readonly Product[];
   lastSent: LastSent;
+  retry?: boolean;
 }): DueNotification[] {
-  const { now, settings, products, lastSent } = input;
+  const { now, settings, products, lastSent, retry = false } = input;
   const today = manilaTime(now);
-  if (today.hour !== settings.notifyHour) return [];
+  const late = retry && today.hour > settings.notifyHour;
+  if (today.hour !== settings.notifyHour && !late) return [];
 
   const expiring = expiringProducts(products, today.date, settings.expiryLeadDays);
   const due: DueNotification[] = [];
