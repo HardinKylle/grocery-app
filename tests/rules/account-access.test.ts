@@ -6,7 +6,15 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  writeBatch,
+} from 'firebase/firestore';
 
 // Fake allow-list. Real emails never go in this public repo.
 const ALICE = { uid: 'alice-uid', email: 'alice@example.test' };
@@ -53,6 +61,17 @@ describe('an allow-listed owner', () => {
     const product = doc(db, `accounts/${ALICE.uid}/products/milk`);
     await assertSucceeds(setDoc(product, { name: 'Bear Brand Milk', count: 1 }));
     await assertSucceeds(getDoc(product));
+  });
+
+  it('can batch-write, list, and delete their Products', async () => {
+    const db = signedIn(ALICE);
+    const products = collection(db, `accounts/${ALICE.uid}/products`);
+    const batch = writeBatch(db);
+    batch.set(doc(products, 'milk'), { name: 'Bear Brand Milk', count: 2, expiryDate: null });
+    batch.set(doc(products, 'eggs'), { name: 'Eggs', count: 0, expiryDate: null });
+    await assertSucceeds(batch.commit());
+    await assertSucceeds(getDocs(products));
+    await assertSucceeds(deleteDoc(doc(products, 'milk')));
   });
 });
 
@@ -106,6 +125,7 @@ describe('one Account', () => {
     const bob = signedIn(BOB);
     await assertFails(getDoc(doc(bob, `accounts/${ALICE.uid}`)));
     await assertFails(getDoc(doc(bob, `accounts/${ALICE.uid}/products/milk`)));
+    await assertFails(getDocs(collection(bob, `accounts/${ALICE.uid}/products`)));
   });
 
   it("cannot write another Account's data", async () => {
@@ -114,5 +134,6 @@ describe('one Account', () => {
     await assertFails(
       setDoc(doc(bob, `accounts/${ALICE.uid}/products/milk`), { name: 'x', count: 99 }),
     );
+    await assertFails(deleteDoc(doc(bob, `accounts/${ALICE.uid}/products/milk`)));
   });
 });
