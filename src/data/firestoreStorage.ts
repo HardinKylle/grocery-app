@@ -3,10 +3,10 @@ import {
   doc,
   onSnapshot,
   writeBatch,
-  type DocumentData,
   type Firestore,
 } from 'firebase/firestore';
 import type { AccountStorage, Change, Product } from '../core/account';
+import { productFromData } from '../core/product';
 
 export type FirestoreStorage = {
   storage: AccountStorage;
@@ -35,7 +35,7 @@ export function createFirestoreStorage(db: Firestore, uid: string): FirestoreSto
   const unsubscribe = onSnapshot(
     products,
     (snapshot) => {
-      current = snapshot.docs.map((d) => toProduct(d.id, d.data()));
+      current = snapshot.docs.map((d) => productFromData(d.id, d.data()));
       isLoaded = true;
       notify();
     },
@@ -73,28 +73,4 @@ export function createFirestoreStorage(db: Firestore, uid: string): FirestoreSto
   };
 
   return { storage, loaded: () => isLoaded, dispose: unsubscribe };
-}
-
-/**
- * Reads a Product doc, filling defaults for fields an older doc may lack.
- * Keeps old data readable as later tickets add fields.
- */
-function toProduct(id: string, data: DocumentData): Product {
-  const entry = data.shoppingList;
-  return {
-    id,
-    name: typeof data.name === 'string' ? data.name : '',
-    count: typeof data.count === 'number' ? data.count : 0,
-    barcodes: Array.isArray(data.barcodes) ? data.barcodes : [],
-    lowStockThreshold: typeof data.lowStockThreshold === 'number' ? data.lowStockThreshold : null,
-    expiryDate: typeof data.expiryDate === 'string' ? data.expiryDate : null,
-    photoUrl: typeof data.photoUrl === 'string' ? data.photoUrl : null,
-    outOfStock: data.outOfStock === true,
-    dismissed: data.dismissed === true,
-    shoppingList:
-      entry && typeof entry === 'object'
-        ? { buyQuantity: Number(entry.buyQuantity) || 1, checkedOff: entry.checkedOff === true }
-        : null,
-    addedAt: typeof data.addedAt === 'string' ? data.addedAt : '',
-  };
 }

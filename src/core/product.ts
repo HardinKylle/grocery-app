@@ -32,3 +32,27 @@ export type Product = {
   /** When the Product joined the Catalog (ISO timestamp from the clock). */
   addedAt: string;
 };
+
+/**
+ * Reads a stored Product doc, filling defaults for fields an older doc may
+ * lack. Keeps old data readable as later tickets add fields.
+ */
+export function productFromData(id: string, data: { readonly [field: string]: unknown }): Product {
+  const entry = data.shoppingList as { buyQuantity?: unknown; checkedOff?: unknown } | null | undefined;
+  return {
+    id,
+    name: typeof data.name === 'string' ? data.name : '',
+    count: typeof data.count === 'number' ? data.count : 0,
+    barcodes: Array.isArray(data.barcodes) ? data.barcodes : [],
+    lowStockThreshold: typeof data.lowStockThreshold === 'number' ? data.lowStockThreshold : null,
+    expiryDate: typeof data.expiryDate === 'string' ? data.expiryDate : null,
+    photoUrl: typeof data.photoUrl === 'string' ? data.photoUrl : null,
+    outOfStock: data.outOfStock === true,
+    dismissed: data.dismissed === true,
+    shoppingList:
+      entry && typeof entry === 'object'
+        ? { buyQuantity: Number(entry.buyQuantity) || 1, checkedOff: entry.checkedOff === true }
+        : null,
+    addedAt: typeof data.addedAt === 'string' ? data.addedAt : '',
+  };
+}
