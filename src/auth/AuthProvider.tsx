@@ -44,14 +44,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
         return;
       }
-      const access = await checkAccess(() => getDoc(doc(db, 'accounts', user.uid)));
-      if (access === 'refused') {
-        refusedEmail = user.email ?? 'This Google account';
-        await firebaseSignOut(auth);
-        return;
-      }
+      // Show the app at once from the signed-in user; the Firestore cache
+      // serves the data. The allow-list check runs alongside and signs out
+      // only on a rules denial, so weak signal never holds up the start.
       refusedEmail = undefined;
       setState({ status: 'signedIn', user });
+      const access = await checkAccess(() => getDoc(doc(db, 'accounts', user.uid)));
+      if (access === 'refused' && auth.currentUser?.uid === user.uid) {
+        refusedEmail = user.email ?? 'This Google account';
+        await firebaseSignOut(auth);
+      }
     });
   }, []);
 

@@ -13,6 +13,7 @@ import {
   persistentMultipleTabManager,
 } from 'firebase/firestore';
 import { connectFunctionsEmulator, getFunctions } from 'firebase/functions';
+import { capAuthStartupRequests } from './auth/startupFetch';
 
 const env = import.meta.env;
 const useEmulators = env.VITE_USE_EMULATORS === 'true';
@@ -36,11 +37,16 @@ export const app = initializeApp({
   appId: env.VITE_FIREBASE_APP_ID,
 });
 
+// Weak signal: don't let Auth's startup check of the saved user hang for
+// 30 s (see startupFetch.ts). Must be set up before initializeAuth.
+const releaseAuthStartup = capAuthStartupRequests();
+
 // Persist the session in IndexedDB so the Home Screen app stays signed in.
 export const auth = initializeAuth(app, {
   persistence: [indexedDBLocalPersistence, browserLocalPersistence],
   popupRedirectResolver: browserPopupRedirectResolver,
 });
+void auth.authStateReady().finally(releaseAuthStartup);
 
 // Offline cache: must be the first Firestore call.
 export const db = initializeFirestore(app, {
